@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.una.embyhub.mapper.IpInfoMapper">
+  <resultMap id="BaseResultMap" type="com.una.embyhub.model.entity.IpInfo">
+    <!--@mbg.generated-->
+    <!--@Table ip_info-->
+    <id column="id" jdbcType="BIGINT" property="id" />
+    <result column="ip" jdbcType="VARCHAR" property="ip" />
+    <result column="pro" jdbcType="VARCHAR" property="pro" />
+    <result column="pro_code" jdbcType="VARCHAR" property="proCode" />
+    <result column="city" jdbcType="VARCHAR" property="city" />
+    <result column="city_code" jdbcType="VARCHAR" property="cityCode" />
+    <result column="region" jdbcType="VARCHAR" property="region" />
+    <result column="region_code" jdbcType="VARCHAR" property="regionCode" />
+    <result column="addr" jdbcType="VARCHAR" property="addr" />
+    <result column="region_names" jdbcType="VARCHAR" property="regionNames" />
+    <result column="err" jdbcType="VARCHAR" property="err" />
+    <result column="isp" jdbcType="VARCHAR" property="isp" />
+    <result column="create_datetime" jdbcType="TIMESTAMP" property="createDatetime" />
+    <result column="update_datetime" jdbcType="TIMESTAMP" property="updateDatetime" />
+    <result column="create_user_name" jdbcType="VARCHAR" property="createUserName" />
+    <result column="update_user_name" jdbcType="VARCHAR" property="updateUserName" />
+    <result column="update_user_id" jdbcType="BIGINT" property="updateUserId" />
+    <result column="create_user_id" jdbcType="BIGINT" property="createUserId" />
+    <result column="del_flag" jdbcType="INTEGER" property="delFlag" />
+  </resultMap>
+  <sql id="Base_Column_List">
+    <!--@mbg.generated-->
+    id, ip, pro, pro_code, city, city_code, region, region_code, addr, region_names, 
+    err, isp, create_datetime, update_datetime, create_user_name, update_user_name, update_user_id, 
+    create_user_id, del_flag
+  </sql>
+</mapper>

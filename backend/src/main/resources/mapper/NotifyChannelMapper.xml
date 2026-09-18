@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.una.embyhub.mapper.NotifyChannelMapper">
+  <resultMap id="BaseResultMap" type="com.una.embyhub.model.entity.NotifyChannel">
+    <!--@mbg.generated-->
+    <!--@Table notify_channel-->
+    <id column="id" jdbcType="BIGINT" property="id" />
+    <result column="name" jdbcType="VARCHAR" property="name" />
+    <result column="desc" jdbcType="VARCHAR" property="desc" />
+    <result column="icon_type" jdbcType="VARCHAR" property="iconType" />
+    <result column="enabled" jdbcType="INTEGER" property="enabled" />
+    <result column="custom_icon" jdbcType="VARCHAR" property="customIcon" />
+    <result column="params" jdbcType="VARCHAR" property="params" />
+    <result column="create_datetime" jdbcType="TIMESTAMP" property="createDatetime" />
+    <result column="update_datetime" jdbcType="TIMESTAMP" property="updateDatetime" />
+    <result column="create_user_name" jdbcType="VARCHAR" property="createUserName" />
+    <result column="update_user_name" jdbcType="VARCHAR" property="updateUserName" />
+    <result column="update_user_id" jdbcType="BIGINT" property="updateUserId" />
+    <result column="create_user_id" jdbcType="BIGINT" property="createUserId" />
+    <result column="del_flag" jdbcType="INTEGER" property="delFlag" />
+  </resultMap>
+  <sql id="Base_Column_List">
+    <!--@mbg.generated-->
+    id, `name`, `desc`, icon_type, enabled, custom_icon, params, create_datetime, update_datetime, 
+    create_user_name, update_user_name, update_user_id, create_user_id, del_flag
+  </sql>
+</mapper>

@@ -1,0 +1,22 @@
+CREATE TABLE `distribution_custom_exchange` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `exchange_no` varchar(64) NOT NULL COMMENT '兑换单号',
+  `user_id` bigint(20) NOT NULL COMMENT '用户ID',
+  `product_id` bigint(20) NOT NULL COMMENT '商品ID',
+  `product_name` varchar(255) DEFAULT NULL COMMENT '商品名称(快照)',
+  `product_value` int(11) DEFAULT NULL COMMENT '商品值(快照)',
+  `points_cost` int(11) NOT NULL COMMENT '消耗积分',
+  `emby_info_id` bigint(20) DEFAULT NULL COMMENT '关联服务器ID',
+  `status` int(11) NOT NULL DEFAULT '0' COMMENT '状态 0待审批 1已通过 2已拒绝',
+  `review_comment` varchar(255) DEFAULT NULL COMMENT '审批备注',
+  `create_datetime` datetime DEFAULT NULL COMMENT '创建时间',
+  `update_datetime` datetime DEFAULT NULL COMMENT '更新时间',
+  `create_user_name` varchar(255) DEFAULT NULL COMMENT '创建人名称',
+  `update_user_name` varchar(255) DEFAULT NULL COMMENT '修改人名称',
+  `create_user_id` bigint(20) DEFAULT NULL COMMENT '创建人id',
+  `update_user_id` bigint(20) DEFAULT NULL COMMENT '修改人id',
+  `del_flag` int(11) DEFAULT '0' COMMENT '是否删除 0 未删除 1 已删除',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_exchange_no` (`exchange_no`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分销自定义兑换记录表';

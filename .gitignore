@@ -1,0 +1,69 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Reconstructed backend build inputs and outputs
+backend/lib/
+backend/target/
+*.class
+frontend/node_modules/
+frontend/dist/
+frontend/recovered/
+Dockerfile.local-license
+patches/local-license/
+docker-compose.yml
+docker-compose.reconstructed.yml
+.github/
+imgs/foam2.png
+imgs/screenshots/
+backend/src/main/java/*.yml
+backend/src/main/java/*.properties
+backend/src/main/java/summary.txt
+backend/src/main/java/db/
+backend/src/main/java/fonts/
+backend/src/main/java/img/
+backend/src/main/java/mapper/
+backend/src/main/java/movie/category.yaml
+
+### VS Code ###
+.vscode/
+
+.fastRequest
+
+*.gz
+
+# Mist local deployment data and secrets
+.env
+data/
+mysql-data/
+redis-data/
+build/
+patches/app-original.jar
+patches/app-local-license.jar

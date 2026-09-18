@@ -1,0 +1,1 @@
+INSERT INTO `system_config` (`name`, `config_key`, `config_value`, `is_enabled`, `description`, `is_update`, `create_datetime`, `update_datetime`, `create_user_name`, `update_user_name`, `update_user_id`, `create_user_id`, `del_flag`) VALUES ('分销邀请奖励', 'distribution_invite_reward', '10', 1, '分销商邀请用户注册获得的积分奖励', 1, NOW(), NOW(), 'admin', 'admin', 1, 1, 0);

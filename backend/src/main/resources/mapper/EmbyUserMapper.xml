@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.una.embyhub.mapper.EmbyUserMapper">
+  <resultMap id="BaseResultMap" type="com.una.embyhub.model.entity.EmbyUser">
+    <!--@mbg.generated-->
+    <!--@Table emby_user-->
+    <id column="id" jdbcType="BIGINT" property="id" />
+    <result column="emby_user_id" jdbcType="VARCHAR" property="embyUserId" />
+    <result column="emby_user_name" jdbcType="VARCHAR" property="embyUserName" />
+    <result column="emby_user_password" jdbcType="VARCHAR" property="embyUserPassword" />
+    <result column="is_admin" jdbcType="INTEGER" property="isAdmin" />
+    <result column="is_primary_admin" jdbcType="INTEGER" property="isPrimaryAdmin" />
+    <result column="user_status" jdbcType="INTEGER" property="userStatus" />
+    <result column="expiration_date" jdbcType="TIMESTAMP" property="expirationDate" />
+    <result column="expire_date_count" jdbcType="BIGINT" property="expireDateCount" />
+    <result column="create_datetime" jdbcType="TIMESTAMP" property="createDatetime" />
+    <result column="update_datetime" jdbcType="TIMESTAMP" property="updateDatetime" />
+    <result column="create_user_name" jdbcType="VARCHAR" property="createUserName" />
+    <result column="update_user_name" jdbcType="VARCHAR" property="updateUserName" />
+    <result column="update_user_id" jdbcType="BIGINT" property="updateUserId" />
+    <result column="create_user_id" jdbcType="BIGINT" property="createUserId" />
+    <result column="del_flag" jdbcType="INTEGER" property="delFlag" />
+    <result column="remarks" jdbcType="VARCHAR" property="remarks" />
+    <result column="request_packages_count" jdbcType="INTEGER" property="requestPackagesCount" />
+    <result column="email" jdbcType="VARCHAR" property="email" />
+    <result column="mobile" jdbcType="VARCHAR" property="mobile" />
+    <result column="gender" jdbcType="VARCHAR" property="gender" />
+    <result column="birthday" jdbcType="TIMESTAMP" property="birthday" />
+    <result column="interests" jdbcType="VARCHAR" property="interests" />
+    <result column="avatar" jdbcType="VARCHAR" property="avatar" />
+    <result column="register_channel" jdbcType="INTEGER" property="registerChannel" />
+    <result column="emby_info_id" jdbcType="BIGINT" property="embyInfoId" />
+  </resultMap>
+  <sql id="Base_Column_List">
+    <!--@mbg.generated-->
+    id, emby_user_id, emby_user_name, emby_user_password, is_admin, is_primary_admin, user_status, expiration_date,
+    expire_date_count, create_datetime, update_datetime, create_user_name, update_user_name, 
+    update_user_id, create_user_id, del_flag, remarks, request_packages_count, email, 
+    mobile, gender, birthday, interests, avatar, register_channel, emby_info_id
+  </sql>
+</mapper>

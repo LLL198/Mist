@@ -1,0 +1,2 @@
+# All reconstructed Java sources compile from the decompiled/repair sources.
+# Keep this file as an extension point for future reverse-engineering repairs.

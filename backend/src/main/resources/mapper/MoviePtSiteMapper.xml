@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.una.embyhub.movie.mapper.MoviePtSiteMapper">
+  <resultMap id="BaseResultMap" type="com.una.embyhub.movie.entity.MoviePtSiteEntity">
+    <!--@mbg.generated-->
+    <!--@Table movie_pt_site-->
+    <id column="id" jdbcType="BIGINT" property="id" />
+    <result column="name" jdbcType="VARCHAR" property="name" />
+    <result column="base_url" jdbcType="VARCHAR" property="baseUrl" />
+    <result column="cookies" jdbcType="LONGVARCHAR" property="cookies" />
+    <result column="token" jdbcType="LONGVARCHAR" property="token" />
+    <result column="site_type" jdbcType="VARCHAR" property="siteType" />
+    <result column="enabled" jdbcType="INTEGER" property="enabled" />
+    <result column="create_datetime" jdbcType="TIMESTAMP" property="createDatetime" />
+    <result column="update_datetime" jdbcType="TIMESTAMP" property="updateDatetime" />
+    <result column="create_user_name" jdbcType="VARCHAR" property="createUserName" />
+    <result column="update_user_name" jdbcType="VARCHAR" property="updateUserName" />
+    <result column="update_user_id" jdbcType="BIGINT" property="updateUserId" />
+    <result column="create_user_id" jdbcType="BIGINT" property="createUserId" />
+    <result column="del_flag" jdbcType="INTEGER" property="delFlag" />
+  </resultMap>
+  <sql id="Base_Column_List">
+    <!--@mbg.generated-->
+    id, `name`, base_url, cookies, token, site_type, enabled, create_datetime,
+    update_datetime, create_user_name, update_user_name, update_user_id, create_user_id,
+    del_flag
+  </sql>
+</mapper>

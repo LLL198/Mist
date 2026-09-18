@@ -1,0 +1,1 @@
+ALTER TABLE `emby_info` ADD INDEX `idx_emby_server_id` (`emby_server_id`);

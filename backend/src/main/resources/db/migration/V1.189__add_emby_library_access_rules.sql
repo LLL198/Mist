@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS `emby_library_access_rule` (
+    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `emby_info_id` bigint NOT NULL COMMENT 'Emby服务器ID',
+    `scope_type` varchar(16) NOT NULL COMMENT '规则范围 GLOBAL全局 USER用户',
+    `scope_key` varchar(64) NOT NULL COMMENT '范围唯一键 GLOBAL 或 USER:用户ID',
+    `target_user_id` bigint DEFAULT NULL COMMENT '用户范围对应的Foam用户ID',
+    `rule_enabled` tinyint NOT NULL DEFAULT 0 COMMENT '全局分级或用户覆盖是否启用',
+    `visible_folder_ids` mediumtext COMMENT '允许展示的Emby媒体库ID JSON数组',
+    `create_datetime` datetime DEFAULT NULL,
+    `update_datetime` datetime DEFAULT NULL,
+    `create_user_name` varchar(255) DEFAULT NULL,
+    `update_user_name` varchar(255) DEFAULT NULL,
+    `update_user_id` bigint DEFAULT NULL,
+    `create_user_id` bigint DEFAULT NULL,
+    `del_flag` tinyint NOT NULL DEFAULT 0,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_emby_library_access_scope` (`emby_info_id`, `scope_key`),
+    KEY `idx_emby_library_access_target` (`target_user_id`),
+    KEY `idx_emby_library_access_server_enabled` (`emby_info_id`, `rule_enabled`, `del_flag`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Emby媒体库分级访问规则';

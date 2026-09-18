@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.una.embyhub.mapper.RoseUserBindingMapper">
+  <resultMap id="BaseResultMap" type="com.una.embyhub.model.entity.RoseUserBinding">
+    <id column="id" jdbcType="BIGINT" property="id" />
+    <result column="user_id" jdbcType="BIGINT" property="userId" />
+    <result column="emby_user_id" jdbcType="VARCHAR" property="embyUserId" />
+    <result column="emby_user_name" jdbcType="VARCHAR" property="embyUserName" />
+    <result column="emby_info_id" jdbcType="BIGINT" property="embyInfoId" />
+    <result column="rose_account_id" jdbcType="VARCHAR" property="roseAccountId" />
+    <result column="rose_account_name" jdbcType="VARCHAR" property="roseAccountName" />
+    <result column="rose_user_id" jdbcType="VARCHAR" property="roseUserId" />
+    <result column="rose_username" jdbcType="VARCHAR" property="roseUsername" />
+    <result column="rose_mobile" jdbcType="VARCHAR" property="roseMobile" />
+    <result column="rose_avatar_url" jdbcType="VARCHAR" property="roseAvatarUrl" />
+    <result column="device_app" jdbcType="VARCHAR" property="deviceApp" />
+    <result column="cookie_text" jdbcType="LONGVARCHAR" property="cookieText" />
+    <result column="cookie_text_masked" jdbcType="VARCHAR" property="cookieTextMasked" />
+    <result column="rose_auth_cookie_text" jdbcType="LONGVARCHAR" property="roseAuthCookieText" />
+    <result column="target_root" jdbcType="VARCHAR" property="targetRoot" />
+    <result column="libraries_json" jdbcType="LONGVARCHAR" property="librariesJson" />
+    <result column="binding_status" jdbcType="VARCHAR" property="bindingStatus" />
+    <result column="qr_session_id" jdbcType="VARCHAR" property="qrSessionId" />
+    <result column="qr_status" jdbcType="VARCHAR" property="qrStatus" />
+    <result column="qr_scan_url" jdbcType="VARCHAR" property="qrScanUrl" />
+    <result column="last_error" jdbcType="VARCHAR" property="lastError" />
+    <result column="rose_profile_json" jdbcType="LONGVARCHAR" property="roseProfileJson" />
+    <result column="account_summary_json" jdbcType="LONGVARCHAR" property="accountSummaryJson" />
+    <result column="cookie_updated_at" jdbcType="TIMESTAMP" property="cookieUpdatedAt" />
+    <result column="bound_at" jdbcType="TIMESTAMP" property="boundAt" />
+    <result column="last_sync_at" jdbcType="TIMESTAMP" property="lastSyncAt" />
+    <result column="create_datetime" jdbcType="TIMESTAMP" property="createDatetime" />
+    <result column="update_datetime" jdbcType="TIMESTAMP" property="updateDatetime" />
+    <result column="create_user_name" jdbcType="VARCHAR" property="createUserName" />
+    <result column="update_user_name" jdbcType="VARCHAR" property="updateUserName" />
+    <result column="update_user_id" jdbcType="BIGINT" property="updateUserId" />
+    <result column="create_user_id" jdbcType="BIGINT" property="createUserId" />
+    <result column="del_flag" jdbcType="INTEGER" property="delFlag" />
+  </resultMap>
+  <sql id="Base_Column_List">
+    id, user_id, emby_user_id, emby_user_name, emby_info_id, rose_account_id,
+    rose_account_name, rose_user_id, rose_username, rose_mobile, rose_avatar_url,
+    device_app, cookie_text, cookie_text_masked, rose_auth_cookie_text, target_root,
+    libraries_json, binding_status, qr_session_id, qr_status, qr_scan_url,
+    last_error, rose_profile_json, account_summary_json, cookie_updated_at, bound_at,
+    last_sync_at, create_datetime, update_datetime, create_user_name,
+    update_user_name, update_user_id, create_user_id, del_flag
+  </sql>
+</mapper>

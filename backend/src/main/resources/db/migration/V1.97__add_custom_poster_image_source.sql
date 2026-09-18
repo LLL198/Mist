@@ -1,0 +1,2 @@
+INSERT INTO `system_config` (`name`, `config_key`, `config_value`, `is_enabled`, `description`, `is_update`, `create_datetime`, `update_datetime`, `create_user_name`, `update_user_name`, `update_user_id`, `create_user_id`, `del_flag`)
+VALUES ('自定义海报图片来源', 'custom_poster_image_source', 'poster', 0, '自定义海报的图片来源：poster（优先使用竖版海报图片）或 backdrop（优先使用横版壁纸图片），默认 poster', 0, NOW(), NOW(), 'admin', 'admin', 1, 1, 0);

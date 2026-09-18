@@ -1,0 +1,42 @@
+CREATE TABLE `points_bot_user` (
+    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键id',
+    `chat_id` bigint NOT NULL COMMENT '群聊ID',
+    `user_id` bigint NOT NULL COMMENT 'Telegram用户ID',
+    `username` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Telegram用户名',
+    `display_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '展示名称',
+    `points` bigint DEFAULT '0' COMMENT '积分',
+    `checkin_streak` int DEFAULT '0' COMMENT '连续签到天数',
+    `last_checkin_date` date DEFAULT NULL COMMENT '上次签到日期',
+    `last_message_date` date DEFAULT NULL COMMENT '上次发言日期',
+    `daily_message_points` int DEFAULT '0' COMMENT '当日发言积分',
+    `daily_message_count` int DEFAULT '0' COMMENT '当日发言次数',
+    `create_datetime` datetime DEFAULT NULL COMMENT '创建时间',
+    `update_datetime` datetime DEFAULT NULL COMMENT '修改时间',
+    `create_user_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '创建人名称',
+    `update_user_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '修改人名称',
+    `update_user_id` bigint DEFAULT NULL COMMENT '修改人id',
+    `create_user_id` bigint DEFAULT NULL COMMENT '创建人id',
+    `del_flag` int DEFAULT '0' COMMENT '是否删除 0 未删除 1 已删除',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uniq_chat_user` (`chat_id`,`user_id`),
+    KEY `idx_chat_points` (`chat_id`,`points`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分机器人用户积分表';
+
+CREATE TABLE `points_bot_ledger` (
+    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键id',
+    `chat_id` bigint NOT NULL COMMENT '群聊ID',
+    `user_id` bigint NOT NULL COMMENT 'Telegram用户ID',
+    `delta` int NOT NULL COMMENT '积分变化',
+    `reason` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '原因',
+    `ref_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '服务器关联ID',
+    `create_datetime` datetime DEFAULT NULL COMMENT '创建时间',
+    `update_datetime` datetime DEFAULT NULL COMMENT '修改时间',
+    `create_user_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '创建人名称',
+    `update_user_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '修改人名称',
+    `update_user_id` bigint DEFAULT NULL COMMENT '修改人id',
+    `create_user_id` bigint DEFAULT NULL COMMENT '创建人id',
+    `del_flag` int DEFAULT '0' COMMENT '是否删除 0 未删除 1 已删除',
+    PRIMARY KEY (`id`),
+    KEY `idx_chat_user` (`chat_id`,`user_id`),
+    KEY `idx_created` (`create_datetime`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分机器人积分流水';

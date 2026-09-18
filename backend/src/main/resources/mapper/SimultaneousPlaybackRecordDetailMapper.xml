@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.una.embyhub.mapper.SimultaneousPlaybackRecordDetailMapper">
+  <resultMap id="BaseResultMap" type="com.una.embyhub.model.entity.SimultaneousPlaybackRecordDetail">
+    <id column="id" jdbcType="BIGINT" property="id" />
+    <result column="record_id" jdbcType="BIGINT" property="recordId" />
+    <result column="item_id" jdbcType="VARCHAR" property="itemId" />
+    <result column="item_name" jdbcType="VARCHAR" property="itemName" />
+    <result column="item_type" jdbcType="VARCHAR" property="itemType" />
+    <result column="poster_url" jdbcType="VARCHAR" property="posterUrl" />
+    <result column="playback_time" jdbcType="TIMESTAMP" property="playbackTime" />
+    <result column="client" jdbcType="VARCHAR" property="client" />
+    <result column="device_name" jdbcType="VARCHAR" property="deviceName" />
+    <result column="remote_endpoint" jdbcType="VARCHAR" property="remoteEndpoint" />
+    <result column="remote_address" jdbcType="VARCHAR" property="remoteAddress" />
+    <result column="create_datetime" jdbcType="TIMESTAMP" property="createDatetime" />
+    <result column="update_datetime" jdbcType="TIMESTAMP" property="updateDatetime" />
+    <result column="create_user_name" jdbcType="VARCHAR" property="createUserName" />
+    <result column="update_user_name" jdbcType="VARCHAR" property="updateUserName" />
+    <result column="update_user_id" jdbcType="BIGINT" property="updateUserId" />
+    <result column="create_user_id" jdbcType="BIGINT" property="createUserId" />
+    <result column="del_flag" jdbcType="INTEGER" property="delFlag" />
+  </resultMap>
+  <sql id="Base_Column_List">
+    id, record_id, item_id, item_name, item_type, poster_url, playback_time, client, device_name, remote_endpoint,
+    remote_address, create_datetime, update_datetime, create_user_name, update_user_name, update_user_id, create_user_id, del_flag
+  </sql>
+</mapper>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.una.embyhub.mapper.PointsRecordMapper">
+    <resultMap id="BaseResultMap" type="com.una.embyhub.model.entity.PointsRecord">
+        <!-- @Table points_record -->
+        <id column="id" jdbcType="BIGINT" property="id" />
+        <result column="user_id" jdbcType="BIGINT" property="userId" />
+        <result column="record_type" jdbcType="VARCHAR" property="recordType" />
+        <result column="amount" jdbcType="INTEGER" property="amount" />
+        <result column="balance_after" jdbcType="INTEGER" property="balanceAfter" />
+        <result column="description" jdbcType="VARCHAR" property="description" />
+        <result column="create_datetime" jdbcType="TIMESTAMP" property="createDatetime" />
+        <result column="update_datetime" jdbcType="TIMESTAMP" property="updateDatetime" />
+        <result column="create_user_name" jdbcType="VARCHAR" property="createUserName" />
+        <result column="update_user_name" jdbcType="VARCHAR" property="updateUserName" />
+        <result column="update_user_id" jdbcType="BIGINT" property="updateUserId" />
+        <result column="create_user_id" jdbcType="BIGINT" property="createUserId" />
+        <result column="del_flag" jdbcType="INTEGER" property="delFlag" />
+    </resultMap>
+    <sql id="Base_Column_List">
+        id, user_id, record_type, amount, balance_after, description, create_datetime, update_datetime,
+        create_user_name, update_user_name, update_user_id, create_user_id, del_flag
+    </sql>
+
+    <!-- 分页查询积分记录(带用户信息) -->
+    <select id="selectPageWithUserInfo" resultType="com.una.embyhub.model.dto.response.pointsrecord.PointsRecordResponse">
+        SELECT
+            pr.id,
+            pr.user_id AS userId,
+            eu.emby_user_name AS username,
+            eu.emby_user_name AS embyName,
+            pr.record_type AS recordType,
+            pr.amount,
+            pr.balance_after AS balanceAfter,
+            pr.description,
+            pr.create_datetime AS createDatetime
+        FROM points_record pr
+        LEFT JOIN emby_user eu ON pr.user_id = eu.id
+        WHERE pr.del_flag = 0
+        <if test="userId != null">
+            AND pr.user_id = #{userId}
+        </if>
+        <if test="username != null and username != ''">
+            AND eu.emby_user_name LIKE CONCAT('%', #{username}, '%')
+        </if>
+        <if test="recordType != null and recordType != ''">
+            AND pr.record_type = #{recordType}
+        </if>
+        ORDER BY pr.create_datetime DESC
+    </select>
+</mapper>

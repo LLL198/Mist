@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.una.embyhub.mapper.UserInvitationMapper">
+    <resultMap id="BaseResultMap" type="com.una.embyhub.model.entity.UserInvitation">
+        <!-- @Table user_invitation -->
+        <id column="id" jdbcType="BIGINT" property="id" />
+        <result column="inviter_id" jdbcType="BIGINT" property="inviterId" />
+        <result column="invitee_id" jdbcType="BIGINT" property="inviteeId" />
+        <result column="invitation_source" jdbcType="VARCHAR" property="invitationSource" />
+        <result column="create_datetime" jdbcType="TIMESTAMP" property="createDatetime" />
+        <result column="update_datetime" jdbcType="TIMESTAMP" property="updateDatetime" />
+        <result column="create_user_name" jdbcType="VARCHAR" property="createUserName" />
+        <result column="update_user_name" jdbcType="VARCHAR" property="updateUserName" />
+        <result column="update_user_id" jdbcType="BIGINT" property="updateUserId" />
+        <result column="create_user_id" jdbcType="BIGINT" property="createUserId" />
+        <result column="del_flag" jdbcType="INTEGER" property="delFlag" />
+    </resultMap>
+    <sql id="Base_Column_List">
+        id, inviter_id, invitee_id, invitation_source, create_datetime, update_datetime,
+        create_user_name, update_user_name, update_user_id, create_user_id, del_flag
+    </sql>
+</mapper>

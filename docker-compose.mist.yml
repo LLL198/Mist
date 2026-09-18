@@ -1,0 +1,103 @@
+services:
+  mist-api:
+    image: mist-api-reconstructed:local
+    build:
+      context: .
+      dockerfile: Dockerfile.reconstructed
+    container_name: mist-api
+    restart: unless-stopped
+    privileged: true
+    volumes:
+      - ./data:/data
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/foam-api-v2?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set}
+      TMDB_APITOKEN: ${TMDB_APITOKEN:-}
+      TMDB_APIKEY: ${TMDB_APIKEY:-}
+      TMDB_IMAGE_URL: https://image.tmdb.org/t/p/original
+      TZ: ${TZ:-Asia/Shanghai}
+      HTTP_PROXY_ENABLED: ${HTTP_PROXY_ENABLED:-false}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,db,redis,mist-api}
+      EMBY_HUB_SEARCH_URL: ${EMBY_HUB_SEARCH_URL:-}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PWD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      REDIS_DB: 0
+      MIST_CORS_ALLOWED_ORIGINS: ${MIST_CORS_ALLOWED_ORIGINS:-http://localhost:8082,http://127.0.0.1:8082}
+    networks:
+      - mist-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  mist-web:
+    image: mist-web-reconstructed:local
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: mist-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MIST_WEB_PORT:-8082}:80"
+    networks:
+      - mist-network
+    depends_on:
+      - mist-api
+
+  db:
+    image: mysql:8.4.6
+    container_name: mist-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set}
+      MYSQL_DATABASE: foam-api-v2
+      TZ: ${TZ:-Asia/Shanghai}
+      LANG: en_US.UTF-8
+    command:
+      - mysqld
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --group_concat_max_len=102400
+    volumes:
+      - ./mysql-data:/var/lib/mysql
+    networks:
+      - mist-network
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7.4
+    container_name: mist-redis
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --save
+      - "60"
+      - "1"
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    volumes:
+      - ./redis-data:/data
+    networks:
+      - mist-network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+networks:
+  mist-network:

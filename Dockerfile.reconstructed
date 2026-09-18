@@ -1,0 +1,11 @@
+FROM eclipse-temurin:21-jre
+
+WORKDIR /app
+
+COPY backend/target/mist-api-reconstructed.jar /app/app.jar
+COPY backend/lib/ /app/lib/
+
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75"
+EXPOSE 8080
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -cp '/app/app.jar:/app/lib/*' com.una.embyhub.FoamApiApplication"]

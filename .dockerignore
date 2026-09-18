@@ -1,0 +1,14 @@
+**
+!Dockerfile.reconstructed
+!docker-compose.mist.yml
+!backend/
+!backend/target/
+!backend/target/mist-api-reconstructed.jar
+!backend/lib/
+!backend/lib/*.jar
+!frontend/
+!frontend/dist/
+!frontend/dist/**
+!frontend/Dockerfile
+!frontend/nginx/
+!frontend/nginx/default.conf

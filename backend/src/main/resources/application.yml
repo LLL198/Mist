@@ -1,0 +1,75 @@
+server:
+  port: 8080
+  # 仅由 Tomcat 的可信内部代理规则解析 X-Forwarded-*；业务代码始终读取处理后的 remoteAddr。
+  forward-headers-strategy: native
+
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: del_flag
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    jdbc-type-for-null: 'null'
+
+sa-token:
+  # token 名称（同时也是 cookie 名称）
+  token-name: token
+  # token 有效期（单位：秒） 默认1天，-1 代表永久有效
+  timeout: 86400
+  # token 最低活跃频率（单位：秒），如果 token 超过此时间没有访问系统就会被冻结，默认-1 代表不限制，永不冻结
+  active-timeout: 36000
+  # 是否允许同一账号多地同时登录 （为 true 时允许一起登录, 为 false 时新登录挤掉旧登录）
+  is-concurrent: true
+  # 在多人登录同一账号时，是否共用一个 token （为 true 时所有登录共用一个 token, 为 false 时每次登录新建一个 token）
+  is-share: false
+  # token 风格（默认可取值：uuid、simple-uuid、random-32、random-64、random-128、tik）
+  token-style: uuid
+  # 是否输出操作日志
+  is-log: true
+
+spring:
+  profiles:
+    active: dev # 环境配置
+
+  main:
+    allow-circular-references: true
+
+  flyway:
+    #数据库存在表时，自动使用设置的基线版本（baseline-version），数据库不存在表时，即使设置了，也会从第一个版本开始执行，默认值为false
+    baseline-on-migrate: true
+    #基线版本号，baseline-on-migrate为true时小于等于此版本号的脚本不会执行，默认值为1
+    baseline-version: 1.0.0
+    #设置为false会删除指定schema下所有的表，生产环境务必禁用，spring中该参数默认是false，需要手动设置为true
+    clean-disabled: true
+    #sql脚本存放位置，允许设置多个location，用英文逗号分割，默认值为classpath:db/migration
+    locations: classpath:db/migration,classpath:db/callback
+    #是否替换sql脚本中的占位符，占位符默认是${xxx},默认是替换，如果不需要替换，可以设置为false
+    placeholder-replacement: false
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+  avatar:
+    base-path: data/avatars
+    public-path: /avatars
+
+foam:
+  security:
+    # 全局同步成本较高，单用户设置使用独立的高配额；均按渠道和管理员身份分别计数。
+    emby-library-access-rate-limit:
+      max-global-mutations: ${EMBY_LIBRARY_ACCESS_GLOBAL_MAX_MUTATIONS:${EMBY_LIBRARY_ACCESS_MAX_MUTATIONS:10}}
+      max-user-mutations: ${EMBY_LIBRARY_ACCESS_USER_MAX_MUTATIONS:300}
+      window: ${EMBY_LIBRARY_ACCESS_MUTATION_WINDOW:1m}
+    # 开放注册和邀请码注册共享尝试次数、并发占位及每日成功额度。
+    invitation-registration-rate-limit:
+      max-attempts: ${INVITATION_REGISTER_IP_MAX_ATTEMPTS:5}
+      attempt-window: ${INVITATION_REGISTER_IP_ATTEMPT_WINDOW:10m}
+      daily-success-limit: ${INVITATION_REGISTER_IP_DAILY_SUCCESS_LIMIT:2}
+      daily-success-window: ${INVITATION_REGISTER_IP_DAILY_SUCCESS_WINDOW:24h}
+      same-invitation-cooldown: ${INVITATION_REGISTER_IP_SAME_INVITATION_COOLDOWN:24h}
+      open-registration-cooldown: ${OPEN_REGISTER_IP_COOLDOWN:24h}
+      reservation-timeout: ${INVITATION_REGISTER_IP_RESERVATION_TIMEOUT:5m}

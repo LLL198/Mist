@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.una.embyhub.mapper.RequestListMapper">
+  <resultMap id="BaseResultMap" type="com.una.embyhub.model.entity.RequestList">
+    <!--@mbg.generated-->
+    <!--@Table request_list-->
+    <id column="id" jdbcType="BIGINT" property="id" />
+    <result column="name" jdbcType="VARCHAR" property="name" />
+    <result column="type" jdbcType="VARCHAR" property="type" />
+    <result column="image_url" jdbcType="VARCHAR" property="imageUrl" />
+    <result column="score" jdbcType="VARCHAR" property="score" />
+    <result column="tmdb_url" jdbcType="VARCHAR" property="tmdbUrl" />
+    <result column="release_date" jdbcType="TIMESTAMP" property="releaseDate" />
+    <result column="parent_tmdb_id" jdbcType="INTEGER" property="parentTmdbId" />
+    <result column="tmdb_id" jdbcType="INTEGER" property="tmdbId" />
+    <result column="overview" jdbcType="VARCHAR" property="overview" />
+    <result column="user_id" jdbcType="BIGINT" property="userId" />
+    <result column="emby_info_id" jdbcType="BIGINT" property="embyInfoId" />
+    <result column="status" jdbcType="INTEGER" property="status" />
+    <result column="emby_user_name" jdbcType="VARCHAR" property="embyUserName" />
+    <result column="emby_server_id" jdbcType="VARCHAR" property="embyServerId" />
+    <result column="create_datetime" jdbcType="TIMESTAMP" property="createDatetime" />
+    <result column="update_datetime" jdbcType="TIMESTAMP" property="updateDatetime" />
+    <result column="create_user_name" jdbcType="VARCHAR" property="createUserName" />
+    <result column="update_user_name" jdbcType="VARCHAR" property="updateUserName" />
+    <result column="update_user_id" jdbcType="BIGINT" property="updateUserId" />
+    <result column="create_user_id" jdbcType="BIGINT" property="createUserId" />
+    <result column="del_flag" jdbcType="INTEGER" property="delFlag" />
+    <result column="backdrop_path" jdbcType="VARCHAR" property="backdropPath" />
+    <result column="season" jdbcType="INTEGER" property="season" />
+    <result column="episode" jdbcType="INTEGER" property="episode" />
+    <result column="movie_pilot_subscription_id" jdbcType="BIGINT" property="moviePilotSubscriptionId" />
+  </resultMap>
+  <sql id="Base_Column_List">
+    <!--@mbg.generated-->
+    id, `name`, `type`, image_url, score, tmdb_url, release_date, parent_tmdb_id, tmdb_id, 
+    overview, user_id, emby_info_id, `status`, emby_user_name, emby_server_id, create_datetime, update_datetime, create_user_name,
+    update_user_name, update_user_id, create_user_id, del_flag, backdrop_path, season,
+    episode, movie_pilot_subscription_id
+  </sql>
+</mapper>

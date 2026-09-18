@@ -1,0 +1,25 @@
+-- 新增Emby访问设备表，用于存储同步到的客户端信息
+CREATE TABLE IF NOT EXISTS `emby_device` (
+    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `device_id` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'emby server 设备唯一ID',
+    `device_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '设备名称',
+    `app_name` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '应用名称',
+    `app_version` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '应用版本',
+    `last_user_id` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '最后使用的用户ID',
+    `last_user_name` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '最后使用的用户名',
+    `blocked` int DEFAULT 0 COMMENT '是否已禁用 0 否 1 是',
+    `last_activity_time` datetime DEFAULT NULL COMMENT '最近活跃时间',
+    `emby_info_id` bigint DEFAULT NULL COMMENT '服务器配置ID',
+    `emby_server_id` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '服务器唯一标识',
+    `server_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '服务器名称',
+    `create_datetime` datetime DEFAULT NULL COMMENT '创建时间',
+    `update_datetime` datetime DEFAULT NULL COMMENT '修改时间',
+    `create_user_name` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '创建人名称',
+    `update_user_name` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '修改人名称',
+    `update_user_id` bigint DEFAULT NULL COMMENT '修改人id',
+    `create_user_id` bigint DEFAULT NULL COMMENT '创建人id',
+    `del_flag` int DEFAULT 0 COMMENT '是否删除 0 未删除 1 已删除',
+    PRIMARY KEY (`id`) USING BTREE,
+    UNIQUE KEY `uk_device_server` (`device_id`, `emby_info_id`),
+    KEY `idx_emby_info_id` (`emby_info_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Emby访问设备';
