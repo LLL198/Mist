@@ -1633,17 +1633,13 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       }
       String role = owner ? "Owner · 全部权限" : (admin ? "KK 管理员 · 按授权执行" : "Mist 用户");
       String registration = this.isTelegramBotRegistrationEnabled() ? "已开放" : "未开放";
-      return this.foamPanelTitle("服务中心")
-         + "👋 *欢迎回来，" + this.escapeMarkdown(displayName) + "*\n\n"
+      return "👋 *欢迎回来，" + this.escapeMarkdown(displayName) + "*\n\n"
          + "*· 🆔 Telegram ID* | `" + userId + "`\n"
          + "*· 👤 账号状态* | " + accountStatus + "\n"
          + "*· 📡 账号运行* | " + runtimeStatus + "\n"
          + "*· 🧭 可用线路* | " + lineAccess + "\n"
          + "*· 🛡 身份权限* | " + role + "\n"
-         + "*· 📝 自助注册* | " + registration
-         + "\n\n"
-         + MistTelegramStyle.markdownSection("功能入口")
-         + "请选择下方入口，所有页面都会在当前消息中继续。";
+         + "*· 📝 自助注册* | " + registration;
    }
 
    private InlineKeyboardMarkup buildStartPanelHomeKeyboard(boolean admin) {
