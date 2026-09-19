@@ -2,7 +2,9 @@ package com.una.embyhub.model.dto.response.embynotifydata;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.Generated;
 
 public class TelegramResponse implements Serializable {
@@ -18,6 +20,9 @@ public class TelegramResponse implements Serializable {
    private Boolean privateChatMemberRequired = true;
    private Boolean groupCheckinEnabled = true;
    private List<TelegramBotAdminConfig> botAdmins = new ArrayList<>();
+   private String whitelistGiftTemplateMode = "random";
+   private List<String> whitelistGiftTemplates = new ArrayList<>();
+   private Map<String, String> whitelistGiftAdminTemplates = new LinkedHashMap<>();
 
    @Generated
    public String getBotToken() {
@@ -80,6 +85,21 @@ public class TelegramResponse implements Serializable {
    }
 
    @Generated
+   public String getWhitelistGiftTemplateMode() {
+      return this.whitelistGiftTemplateMode;
+   }
+
+   @Generated
+   public List<String> getWhitelistGiftTemplates() {
+      return this.whitelistGiftTemplates;
+   }
+
+   @Generated
+   public Map<String, String> getWhitelistGiftAdminTemplates() {
+      return this.whitelistGiftAdminTemplates;
+   }
+
+   @Generated
    public void setBotToken(final String botToken) {
       this.botToken = botToken;
    }
@@ -137,6 +157,21 @@ public class TelegramResponse implements Serializable {
    @Generated
    public void setBotAdmins(final List<TelegramBotAdminConfig> botAdmins) {
       this.botAdmins = botAdmins;
+   }
+
+   @Generated
+   public void setWhitelistGiftTemplateMode(final String whitelistGiftTemplateMode) {
+      this.whitelistGiftTemplateMode = whitelistGiftTemplateMode;
+   }
+
+   @Generated
+   public void setWhitelistGiftTemplates(final List<String> whitelistGiftTemplates) {
+      this.whitelistGiftTemplates = whitelistGiftTemplates;
+   }
+
+   @Generated
+   public void setWhitelistGiftAdminTemplates(final Map<String, String> whitelistGiftAdminTemplates) {
+      this.whitelistGiftAdminTemplates = whitelistGiftAdminTemplates;
    }
 
    @Generated

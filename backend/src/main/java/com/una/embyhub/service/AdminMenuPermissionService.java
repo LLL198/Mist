@@ -17,6 +17,8 @@ public interface AdminMenuPermissionService {
 
    boolean hasAnyMenuPermission(Long adminUserId, Collection<String> menuKeys);
 
+   void ensureMenuPermissionByBot(Long adminUserId, String menuKey);
+
    void removeAssignments(Long adminUserId);
 
    void assertCurrentPrimaryAdmin();

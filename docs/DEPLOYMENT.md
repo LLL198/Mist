@@ -96,8 +96,6 @@ docker compose -f docker-compose.mist.yml logs -f mist-api mist-web
 3. 按需开启注册、邀请、积分、求片及通知功能。
 4. 使用 Telegram、TMDB 或支付功能时，填写对应服务凭据。
 
-Mist 无需产品激活。账号登录和管理员权限用于保护站点数据。
-
 ## 5. 域名、HTTPS 与远程访问
 
 默认 Web 端口仅绑定部署机器的 `127.0.0.1`。使用域名时，可在宿主机配置反向代理，将 HTTPS 请求转发到 `http://127.0.0.1:8082`。

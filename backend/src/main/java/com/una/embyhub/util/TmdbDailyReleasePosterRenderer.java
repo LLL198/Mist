@@ -145,7 +145,7 @@ public final class TmdbDailyReleasePosterRenderer {
       int tvCount = (int)rows.stream().filter(row -> "tv".equals(row.getMediaType())).count();
       g.setFont(title);
       g.setColor(Color.WHITE);
-      g.drawString("追新每日上映 / 播出榜", 72, 96);
+      g.drawString("Mist · 每日上映 / 播出榜", 72, 96);
       String dateText = date.format(DateTimeFormatter.ofPattern("yyyy年MM月dd日", Locale.CHINA));
       g.setFont(sub);
       g.setColor(new Color(232, 240, 255));

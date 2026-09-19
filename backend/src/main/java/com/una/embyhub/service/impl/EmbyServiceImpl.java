@@ -1858,7 +1858,7 @@ public class EmbyServiceImpl implements EmbyService {
          : DateUtil.formatDateTime(new Date());
       String itemName = record != null ? record.getItemName() : null;
       StringBuilder builder = new StringBuilder()
-         .append("\ud83d\udea8 UA拦截触发\n")
+         .append("🌁 Mist · UA 拦截\n")
          .append("\ud83d\udda5️ 服务器：")
          .append(this.safeText(record != null ? record.getServerName() : null))
          .append("\n")
@@ -2106,7 +2106,7 @@ public class EmbyServiceImpl implements EmbyService {
          }
 
          String details = new StringBuilder()
-            .append("\ud83d\udea8 地区拦截触发\n")
+            .append("🌁 Mist · 地区拦截\n")
             .append("\ud83d\udda5️ 服务器：")
             .append(this.safeText(record.getServerName()))
             .append("\n")

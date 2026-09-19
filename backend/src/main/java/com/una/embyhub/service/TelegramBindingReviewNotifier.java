@@ -70,7 +70,7 @@ public class TelegramBindingReviewNotifier {
          if (client == null) {
             throw new BizException("Telegram 机器人未配置，暂时无法发送验证码");
          } else {
-            String text = "\ud83c\udf01 <b>Mist 换绑验证码</b>\n\n\ud83d\udd04 正在为 Emby 账号 <b>"
+            String text = "🌁 <b>Mist · 换绑验证码</b>\n\n🔄 正在为 Emby 账号 <b>"
                + this.html(embyUserName)
                + "</b> 更换绑定 Telegram。\n\n\ud83d\udd10 <b>验证码：</b><code>"
                + this.html(verificationCode)
@@ -101,7 +101,7 @@ public class TelegramBindingReviewNotifier {
                return;
             }
 
-            String text = "⚠️ <b>Mist 账号安全提醒</b>\n\n与你绑定的 Emby 账号 <b>"
+            String text = "🌁 <b>Mist · 账号安全提醒</b>\n\n与你绑定的 Emby 账号 <b>"
                + this.html(review.getEmbyUserName())
                + "</b> 已更换 Telegram 归属。\n新绑定："
                + this.telegramDisplay(review)
@@ -134,7 +134,7 @@ public class TelegramBindingReviewNotifier {
                   + this.html(review.getOldTelegramUserId())
                   + "</code>\n"
                : "";
-            String text = "\ud83d\udd10 <b>Telegram "
+            String text = "🌁 <b>Mist · Telegram "
                + this.actionName(review)
                + "审批</b>\n\n\ud83d\udc64 <b>Emby 账号：</b>"
                + this.html(review.getEmbyUserName())
@@ -224,7 +224,7 @@ public class TelegramBindingReviewNotifier {
             }
 
             boolean approved = Integer.valueOf(1).equals(review.getStatus());
-            String text = (approved ? "✅ <b>审批已通过</b>" : "❌ <b>审批未通过</b>")
+            String text = (approved ? "🌁 <b>Mist · 审批已通过</b>" : "🌁 <b>Mist · 审批未通过</b>")
                + "\n\n\ud83c\udd94 <b>审批指纹：</b><code>"
                + this.html(this.publicReviewId(review))
                + "</code>\n\ud83d\udccc <b>操作：</b>"
@@ -287,7 +287,7 @@ public class TelegramBindingReviewNotifier {
             + this.html(review.getOldTelegramUserId())
             + "</code>\n"
          : "";
-      return "✅ <b>Telegram "
+      return "🌁 <b>Mist · Telegram "
          + this.actionName(review)
          + "成功</b>\n\n\ud83d\udc64 <b>Emby 账号：</b>"
          + this.html(embyUserName)
@@ -305,7 +305,7 @@ public class TelegramBindingReviewNotifier {
       if (review != null && review.getId() != null) {
          TelegramClient client = this.telegramClientUtils.getTelegramClient();
          if (client != null) {
-            String text = "↩️ <b>用户已自助取消 Telegram "
+            String text = "🌁 <b>Mist · 用户已自助取消 Telegram "
                + this.actionName(review)
                + "申请</b>\n\n\ud83c\udd94 <b>审批指纹：</b><code>"
                + this.html(this.publicReviewId(review))
@@ -357,13 +357,13 @@ public class TelegramBindingReviewNotifier {
    private String resolvedReviewText(TelegramBindingReview review, TelegramBindingReviewNotifier.TelegramReviewerIdentity reviewerIdentity) {
       String headline;
       if (Integer.valueOf(1).equals(review.getStatus())) {
-         headline = "✅ <b>Telegram " + this.actionName(review) + "审批已通过</b>";
+         headline = "🌁 <b>Mist · Telegram " + this.actionName(review) + "审批已通过</b>";
       } else if (Integer.valueOf(2).equals(review.getStatus())) {
-         headline = "❌ <b>Telegram " + this.actionName(review) + "审批已拒绝</b>";
+         headline = "🌁 <b>Mist · Telegram " + this.actionName(review) + "审批已拒绝</b>";
       } else if (Integer.valueOf(3).equals(review.getStatus())) {
-         headline = "↩️ <b>Telegram " + this.actionName(review) + "申请已取消</b>";
+         headline = "🌁 <b>Mist · Telegram " + this.actionName(review) + "申请已取消</b>";
       } else {
-         headline = "ℹ️ <b>Telegram " + this.actionName(review) + "审批已结束</b>";
+         headline = "🌁 <b>Mist · Telegram " + this.actionName(review) + "审批已结束</b>";
       }
 
       String reviewerText = Integer.valueOf(3).equals(review.getStatus())

@@ -106,6 +106,27 @@ public class AdminMenuPermissionServiceImpl extends ServiceImpl<AdminMenuPermiss
       rollbackFor = {Exception.class}
    )
    @Override
+   public void ensureMenuPermissionByBot(Long adminUserId, String menuKey) {
+      this.requireBotMenuTarget(adminUserId, menuKey);
+      boolean exists = this.count(
+            new LambdaQueryWrapper<AdminMenuPermission>()
+               .eq(AdminMenuPermission::getAdminUserId, adminUserId)
+               .eq(AdminMenuPermission::getMenuKey, menuKey)
+         )
+         > 0L;
+      if (!exists) {
+         AdminMenuPermission permission = new AdminMenuPermission();
+         permission.setAdminUserId(adminUserId);
+         permission.setMenuKey(menuKey);
+         permission.setCreateDatetime(new Date());
+         this.save(permission);
+      }
+   }
+
+   @Transactional(
+      rollbackFor = {Exception.class}
+   )
+   @Override
    public void removeAssignments(Long adminUserId) {
       if (adminUserId != null) {
          this.remove(new LambdaQueryWrapper<AdminMenuPermission>().eq(AdminMenuPermission::getAdminUserId, adminUserId));
@@ -139,6 +160,17 @@ public class AdminMenuPermissionServiceImpl extends ServiceImpl<AdminMenuPermiss
          } else {
             return target;
          }
+      }
+   }
+
+   private void requireBotMenuTarget(Long adminUserId, String menuKey) {
+      if (adminUserId == null || AdminMenuKey.fromKey(menuKey).isEmpty()) {
+         throw new BizException(ResponseStatusEnum.BAD_REQUEST.getCode(), "面板菜单权限参数无效");
+      }
+
+      EmbyUser target = this.embyUserMapper.selectById(adminUserId);
+      if (target == null || !Integer.valueOf(1).equals(target.getIsAdmin()) || Integer.valueOf(1).equals(target.getIsPrimaryAdmin())) {
+         throw new BizException(ResponseStatusEnum.PERMISSION_DENIED);
       }
    }
 

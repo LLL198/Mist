@@ -38,6 +38,7 @@ import com.una.embyhub.model.dto.response.tmdb.TmdbResponse;
 import com.una.embyhub.model.entity.BaseEntity;
 import com.una.embyhub.model.entity.EmbyInfo;
 import com.una.embyhub.model.entity.EmbyUser;
+import com.una.embyhub.model.entity.NotifyChannel;
 import com.una.embyhub.model.entity.SystemConfig;
 import com.una.embyhub.model.entity.UserOauthBinding;
 import com.una.embyhub.pointsbot.PointsBot;
@@ -50,6 +51,7 @@ import com.una.embyhub.service.EmbyLibraryAccessService;
 import com.una.embyhub.service.EmbyUserService;
 import com.una.embyhub.service.HostLineService;
 import com.una.embyhub.service.NullbrService;
+import com.una.embyhub.service.NotifyChannelService;
 import com.una.embyhub.service.SystemConfigService;
 import com.una.embyhub.service.TelegramAuthService;
 import com.una.embyhub.service.TelegramBindingManager;
@@ -193,6 +195,8 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    @Autowired
    private TelegramBotAuthorizationService telegramBotAuthorizationService;
    @Autowired
+   private NotifyChannelService notifyChannelService;
+   @Autowired
    private EmbyLibraryAccessService embyLibraryAccessService;
    @Autowired
    private TelegramStartPanelImageStorage telegramStartPanelImageStorage;
@@ -234,7 +238,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    private static final long KK_GIFT_CONFIRMATION_CLEANUP_SECONDS = 60L;
    private static final long TELEGRAM_POINTS_GROUP_MEMBER_CACHE_SECONDS = 60L;
    private static final int INLINE_RESULT_LIMIT = 20;
-   private static final long GROUP_COMMAND_CLEANUP_SECONDS = 5L;
+   private static final long GROUP_COMMAND_CLEANUP_SECONDS = 30L;
    private static final Set<String> FOAM_GROUP_COMMANDS = Set.of(
       "/start",
       "/myaccount",
@@ -253,6 +257,8 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       "/extendusers",
       "/edituser",
       "/kk",
+      "/proadmin",
+      "/revadmin",
       "/whitelist",
       "/unwhitelist",
       "/callall",
@@ -297,6 +303,8 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    private static final long TELEGRAM_REGISTER_QUEUE_POLL_SECONDS = 5L;
    private static final long TELEGRAM_SEND_MESSAGE_INTERVAL_MILLIS = 40L;
    private static final int TELEGRAM_SEND_MESSAGE_MAX_RETRY_COUNT = 3;
+   private static final int WHITELIST_TEMPLATE_MAX_COUNT = 20;
+   private static final int WHITELIST_TEMPLATE_MAX_LENGTH = 1200;
    private static final Pattern TELEGRAM_RETRY_AFTER_PATTERN = Pattern.compile("retry(?:_|\\s*)after\\D*(\\d+)", 2);
    private static final long ANNOUNCEMENT_SESSION_TTL_MILLIS = TimeUnit.MINUTES.toMillis(10L);
    private static final long ANNOUNCEMENT_SEND_INTERVAL_MILLIS = 80L;
@@ -304,17 +312,16 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    private static final String START_PANEL_LOGO_RESOURCE = "/img/mist.png";
    private static final String REQUEST_GUIDE_TEXT = "发送 `/request 片名` 搜索 TMDB，选择结果后点击提交求片。\n也可以使用 `@机器人 影片名` 内联搜索，体验更好；";
    private static final String REQUEST_GUIDE_AFTER_BIND_TEXT = "\ud83c\udfac 现在可以发送 `/request 片名` 搜索 TMDB 并提交求片。\n\ud83d\udca1 也可以使用 `@机器人 影片名` 内联搜索，体验更好；";
-   private static final String ADMIN_PANEL_FOREIGN_CLICK_ALERT = "\ud83c\udf01 这片管理薄雾正由发起它的管理员守护哦～请让 TA 来轻轻操作吧。";
-   private static final String KK_PROTECTED_TARGET_MESSAGE = "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～";
+   private static final String ADMIN_PANEL_FOREIGN_CLICK_ALERT = "🌁 这片管理薄雾正由发起它的管理员守护哦～请让 TA 来轻轻操作吧。";
    private static final char[] KK_PASSWORD_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".toCharArray();
    private static final char[] KK_PASSWORD_DIGITS = "23456789".toCharArray();
    private static final SecureRandom KK_PASSWORD_RANDOM = new SecureRandom();
    private static final List<String> WHITELIST_CELEBRATION_COPY = List.of(
-      "\ud83c\udf01 *星河落进薄雾，今夜的微光有了名字。*",
-      "\ud83c\udf0c *一层薄雾越过银河，替你捎来整片星光。*",
-      "✨ *梦在潮汐间醒来，星空正为新的旅程亮起。*",
-      "\ud83c\udf20 *流星掠过雾海，通往远方的航线悄然展开。*",
-      "\ud83c\udf19 *薄雾盛住月光，银河为幸运的人轻轻让路。*"
+      "雾散之前，先替你留一条通往故事的路。",
+      "夜色入雾，新的故事正等你打开。",
+      "山高水远，愿你总能抵达喜欢的故事。",
+      "沿着微光穿过薄雾，去看想看的风景。",
+      "雾起有时，故事正好开始。"
    );
    private static final int PAGE_SIZE = 5;
    private static final int RESOURCE_PAGE_SIZE = 5;
@@ -509,6 +516,9 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       if (permissions.contains(TelegramBotPermission.USER_WHITELIST)) {
          commands.add(new BotCommand("whitelist", "将用户加入白名单"));
          commands.add(new BotCommand("unwhitelist", "将用户移出白名单"));
+         if (!group) {
+            commands.add(new BotCommand("whitetemplate", "设置白名单赠送模板"));
+         }
       }
 
       if (!group && permissions.contains(TelegramBotPermission.USER_STATUS)) {
@@ -586,12 +596,21 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       List<BotCommand> groupCommands
    ) {
       Set<TelegramBotPermission> permissions = adminId == ownerId ? Set.of(TelegramBotPermission.values()) : delegatedPermissions;
+      List<BotCommand> managementCommands = this.buildManagementCommands(permissions, false);
+      List<BotCommand> groupManagementCommands = this.buildManagementCommands(permissions, true);
+      if (adminId == ownerId) {
+         managementCommands.add(new BotCommand("proadmin", "授予用户 KK 权限"));
+         managementCommands.add(new BotCommand("revadmin", "撤销用户 KK 权限"));
+         groupManagementCommands.add(new BotCommand("proadmin", "授予用户 KK 权限"));
+         groupManagementCommands.add(new BotCommand("revadmin", "撤销用户 KK 权限"));
+      }
+
       this.setCommandScope(
-         this.mergeCommands(privateCommands, this.buildManagementCommands(permissions, false)), BotCommandScopeChat.builder().chatId(adminId).build()
+         this.mergeCommands(privateCommands, managementCommands), BotCommandScopeChat.builder().chatId(adminId).build()
       );
       if (groupId != 0L) {
          this.setCommandScope(
-            this.mergeCommands(groupCommands, this.buildManagementCommands(permissions, true)),
+            this.mergeCommands(groupCommands, groupManagementCommands),
             BotCommandScopeChatMember.builder().chatId(groupId).userId(adminId).build()
          );
       }
@@ -1221,7 +1240,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
 
          return switch (var2) {
             case "/kk", "/edituser" -> TelegramBotPermission.USER_VIEW;
-            case "/whitelist", "/unwhitelist" -> TelegramBotPermission.USER_WHITELIST;
+            case "/whitelist", "/unwhitelist", "/whitetemplate" -> TelegramBotPermission.USER_WHITELIST;
             case "/updateuserinfo", "/enableuser", "/disableuser", "/setexpiry" -> TelegramBotPermission.USER_STATUS;
             case "/panelmute" -> TelegramBotPermission.USER_VIEW;
             case "/resetpassword" -> TelegramBotPermission.USER_PASSWORD;
@@ -1487,11 +1506,20 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                   case "/kk":
                      this.handleKkCommand(message, argument);
                      break;
+                  case "/proadmin":
+                     this.handleTelegramKkPermissionCommand(message, argument, true);
+                     break;
+                  case "/revadmin":
+                     this.handleTelegramKkPermissionCommand(message, argument, false);
+                     break;
                   case "/whitelist":
                      this.handleWhitelistCommand(message, argument, true);
                      break;
                   case "/unwhitelist":
                      this.handleWhitelistCommand(message, argument, false);
+                     break;
+                  case "/whitetemplate":
+                     this.handleWhitelistTemplateCommand(message, argument);
                      break;
                   case "/callall":
                      this.handleCallAllCommand(message);
@@ -1561,17 +1589,23 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                   List.of(new InlineKeyboardRow(InlineKeyboardButton.builder().text("\ud83d\udfe0 打开 Mist 私聊面板").url(this.buildPrivateBotUrl(botName)).build()))
                )
                .build();
-            this.sendKeyboardMessage(chatId, "为了保持群聊整洁，完整服务面板仅在私聊中显示。", keyboard);
+            this.sendKeyboardMessage(chatId,
+               this.foamPanelTitle("服务入口")
+                  + "完整功能面板仅在机器人私聊中显示。\n\n"
+                  + "点击下方按钮进入私聊，账号、线路、求片和积分都会在同一面板内继续。",
+               keyboard
+            );
          }
       } else {
          this.pendingPanelCommands.remove(userId);
+         this.telegramBindingManager.syncPanelAdminFromKkPermission(userId);
          boolean owner = this.isBotOwner(userId);
          boolean admin = this.telegramBotAuthorizationService.isAdmin(userId);
          if (admin) {
             this.refreshCommandMenuForAdmin(userId);
          }
 
-         String text = this.buildStartPanelHomeText(owner, admin);
+         String text = this.buildStartPanelHomeText(userId, owner, admin);
          InlineKeyboardMarkup keyboard = this.buildStartPanelHomeKeyboard(admin);
          if (!this.sendStartPanelPhoto(chatId, text, keyboard)) {
             this.sendKeyboardMessage(chatId, text, keyboard);
@@ -1579,29 +1613,57 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       }
    }
 
-   private String buildStartPanelHomeText(boolean owner, boolean admin) {
-      String role = owner ? "黑桃C · 全部权限" : (admin ? "管理员 · 按授权执行" : "Mist 用户");
-      return this.foamPanelTitle("服务中心") + "身份：*" + role + "*";
+   private String buildStartPanelHomeText(long userId, boolean owner, boolean admin) {
+      EmbyUser boundUser = this.telegramBindingManager.findBoundUser(userId, false);
+      String displayName = "Mist 用户";
+      String accountStatus = "尚未绑定 Emby";
+      String runtimeStatus = "等待绑定";
+      String lineAccess = "绑定后显示可用线路";
+      if (boundUser != null) {
+         if (StringUtils.hasText(boundUser.getEmbyUserName())) {
+            displayName = boundUser.getEmbyUserName();
+            accountStatus = "已绑定 · `" + this.escapeMarkdown(boundUser.getEmbyUserName()) + "`";
+         } else {
+            accountStatus = "已绑定 Emby";
+         }
+         runtimeStatus = boundUser.getUserStatus() != null && boundUser.getUserStatus() == 0 ? "已停用" : "正常";
+         lineAccess = HostLineTypeEnum.normalize(boundUser.getHostLineType()) == HostLineTypeEnum.WHITELIST.getCode()
+            ? "白名单 · 全部线路"
+            : "普通线路";
+      }
+      String role = owner ? "Owner · 全部权限" : (admin ? "KK 管理员 · 按授权执行" : "Mist 用户");
+      String registration = this.isTelegramBotRegistrationEnabled() ? "已开放" : "未开放";
+      return this.foamPanelTitle("服务中心")
+         + "👋 *欢迎回来，" + this.escapeMarkdown(displayName) + "*\n\n"
+         + "*· 🆔 Telegram ID* | `" + userId + "`\n"
+         + "*· 👤 账号状态* | " + accountStatus + "\n"
+         + "*· 📡 账号运行* | " + runtimeStatus + "\n"
+         + "*· 🧭 可用线路* | " + lineAccess + "\n"
+         + "*· 🛡 身份权限* | " + role + "\n"
+         + "*· 📝 自助注册* | " + registration
+         + "\n\n"
+         + MistTelegramStyle.markdownSection("功能入口")
+         + "请选择下方入口，所有页面都会在当前消息中继续。";
    }
 
    private InlineKeyboardMarkup buildStartPanelHomeKeyboard(boolean admin) {
       List<InlineKeyboardRow> rows = new ArrayList<>();
       rows.add(
          new InlineKeyboardRow(
-            InlineKeyboardButton.builder().text("\ud83d\udc64 我的账号").callbackData("start_panel:account").build(),
-            InlineKeyboardButton.builder().text("\ud83d\udce1 可用线路").callbackData("start_panel:lines").build()
+             InlineKeyboardButton.builder().text("\ud83d\udc64 我的账号").callbackData("start_panel:account").build(),
+             InlineKeyboardButton.builder().text("\ud83d\udd17 绑定 / 注册").callbackData("start_panel:binding").build()
          )
       );
       rows.add(
          new InlineKeyboardRow(
-            InlineKeyboardButton.builder().text("\ud83c\udfac 求片中心").callbackData("start_panel:request").build(),
-            InlineKeyboardButton.builder().text("\ud83e\ude99 积分中心").callbackData("start_panel:points").build()
+             InlineKeyboardButton.builder().text("\ud83d\udce1 可用线路").callbackData("start_panel:lines").build(),
+             InlineKeyboardButton.builder().text("\ud83c\udfac 求片中心").callbackData("start_panel:request").build()
          )
       );
       rows.add(
          new InlineKeyboardRow(
-            InlineKeyboardButton.builder().text("✅ 每日签到").callbackData("start_action:checkin").build(),
-            InlineKeyboardButton.builder().text("\ud83d\udd17 绑定与卡密").callbackData("start_panel:binding").build()
+             InlineKeyboardButton.builder().text("\ud83e\ude99 积分中心").callbackData("start_panel:points").build(),
+             InlineKeyboardButton.builder().text("✅ 每日签到").callbackData("start_action:checkin").build()
          )
       );
       if (admin) {
@@ -1682,28 +1744,20 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          } else {
             DataQueryBot.TelegramKkTarget telegramTarget = this.resolveKkTelegramTarget(message, argument);
             if (telegramTarget != null) {
-               if (this.isKkProtectedTelegramTarget(telegramTarget.getTelegramUserId())) {
-                  this.sendMessage(message.getChatId(), "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
+               EmbyUser boundUser = this.telegramBindingManager.findBoundUser(telegramTarget.getTelegramUserId(), false);
+               if (boundUser == null) {
+                  this.renderAdminTelegramMemberPanel(operatorId, telegramTarget, null, message.getChatId(), null);
                } else {
-                  EmbyUser boundUser = this.telegramBindingManager.findBoundUser(telegramTarget.getTelegramUserId(), false);
-                  if (boundUser == null) {
-                     this.renderAdminTelegramMemberPanel(operatorId, telegramTarget, null, message.getChatId(), null);
-                  } else if (this.isKkProtectedEmbyTarget(boundUser)) {
-                     this.sendMessage(message.getChatId(), "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
-                  } else {
-                     this.pendingUserEdits.put(operatorId, new DataQueryBot.PendingUserEdit(operatorId, boundUser.getId()));
-                     boolean delivered = this.sendAdminUserPanelToChat(operatorId, boundUser, message.getChatId(), true);
-                     if (!delivered) {
-                        this.pendingUserEdits.remove(operatorId);
-                        this.sendMessage(message.getChatId(), "❌ 用户管理面板暂时没有展开，请稍后再试。");
-                     }
+                  this.pendingUserEdits.put(operatorId, new DataQueryBot.PendingUserEdit(operatorId, boundUser.getId()));
+                  boolean delivered = this.sendAdminUserPanelToChat(operatorId, boundUser, message.getChatId(), true);
+                  if (!delivered) {
+                     this.pendingUserEdits.remove(operatorId);
+                     this.sendMessage(message.getChatId(), "❌ 用户管理面板暂时没有展开，请稍后再试。");
                   }
                }
             } else {
                EmbyUser target = this.resolveAdminCommandTarget(message, argument, false);
-               if (target != null && this.isKkProtectedEmbyTarget(target)) {
-                  this.sendMessage(message.getChatId(), "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
-               } else if (target != null && this.canBotOperatorViewTarget(operatorId, target)) {
+               if (target != null && this.canBotOperatorViewTarget(operatorId, target)) {
                   this.pendingUserEdits.put(operatorId, new DataQueryBot.PendingUserEdit(operatorId, target.getId()));
                   boolean delivered = message.isUserMessage()
                      ? this.sendAdminUserPanel(operatorId, target)
@@ -1749,6 +1803,92 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             }
          }
       } else {
+         return null;
+      }
+   }
+
+   private void handleTelegramKkPermissionCommand(Message message, String argument, boolean grant) {
+      long operatorId = message.getFrom() == null || message.getFrom().getId() == null ? 0L : message.getFrom().getId();
+      if (!this.isBotOwner(operatorId)) {
+         this.sendMessage(message.getChatId(), "❌ 只有 Mist Owner 可以授予或撤销 KK 权限。");
+         return;
+      }
+
+      DataQueryBot.TelegramKkTarget target = this.resolveTelegramAdminTarget(message, argument);
+      String command = grant ? "/proadmin" : "/revadmin";
+      if (target == null || target.getTelegramUserId() <= 0L) {
+         this.sendMessage(
+            message.getChatId(),
+            "用法：回复目标用户发送 `" + command + "`，或发送 `" + command + " <Telegram ID或@用户名>`。"
+         );
+         return;
+      }
+
+      try {
+         EmbyUser boundUser = this.telegramBindingManager.findBoundUser(target.getTelegramUserId(), false);
+         if (boundUser != null) {
+            this.embyUserService.updateUserAdminByBot(boundUser.getId(), grant ? 1 : 0, true);
+         }
+
+         boolean changed = grant
+            ? this.notifyChannelService.grantTelegramBotPermission(
+               String.valueOf(target.getTelegramUserId()), target.getDisplayName(), TelegramBotPermission.USER_VIEW
+            )
+            : this.notifyChannelService.revokeTelegramBotPermissions(String.valueOf(target.getTelegramUserId()));
+         if (changed) {
+            this.initCommands();
+         }
+
+         String targetMention = this.telegramUserMention(target.getTelegramUserId(), target.getDisplayName());
+         String panelSync = boundUser == null
+            ? "\n\nℹ️ 目标尚未绑定 Emby 账号，面板管理员状态将在绑定后处理。"
+            : grant
+               ? "\n\n🖥️ 已同步为面板管理员，并开放用户管理菜单。"
+               : "\n\n🖥️ 面板管理员权限已同步撤销。";
+         String result = grant
+            ? (changed ? "✅ 已授予 " + targetMention + " KK 权限，现在可以使用 `/kk`。" : "ℹ️ " + targetMention + " 已经拥有 KK 权限。") + panelSync
+            : (changed ? "✅ 已撤销 " + targetMention + " 的 KK 权限。" : "ℹ️ " + targetMention + " 当前没有 KK 权限。") + panelSync;
+         this.sendMessage(message.getChatId(), this.foamPanelTitle(grant ? "KK 权限已更新" : "KK 权限已撤销") + result);
+         log.info(
+            "Telegram KK 权限变更: operatorId={}, targetTelegramUserId={}, grant={}, changed={}",
+            operatorId,
+            target.getTelegramUserId(),
+            grant,
+            changed
+         );
+      } catch (BizException var9) {
+         this.sendMessage(message.getChatId(), this.foamPanelTitle("KK 权限操作失败") + "❌ " + this.escapeMarkdown(var9.getMessage()));
+      } catch (Exception var10) {
+         log.error("Telegram KK 权限变更失败: operatorId={}, targetTelegramUserId={}, grant={}", operatorId, target.getTelegramUserId(), grant, var10);
+         this.sendMessage(message.getChatId(), this.foamPanelTitle("KK 权限操作失败") + "❌ 操作失败，请稍后重试。" );
+      }
+   }
+
+   private DataQueryBot.TelegramKkTarget resolveTelegramAdminTarget(Message message, String argument) {
+      if (message != null && message.getReplyToMessage() != null) {
+         org.telegram.telegrambots.meta.api.objects.User repliedUser = message.getReplyToMessage().getFrom();
+         if (repliedUser != null && repliedUser.getId() != null && !Boolean.TRUE.equals(repliedUser.getIsBot())) {
+            return DataQueryBot.TelegramKkTarget.from(repliedUser);
+         }
+      }
+
+      String target = argument == null ? "" : argument.trim();
+      if (target.contains(" ")) {
+         target = target.split("\\s+", 2)[0];
+      }
+      if (!StringUtils.hasText(target)) {
+         return null;
+      }
+
+      if (target.startsWith("@")) {
+         Long resolvedTelegramUserId = this.telegramClient == null ? null : this.telegramClient.resolvePublicUserId(target);
+         return resolvedTelegramUserId == null ? null : new DataQueryBot.TelegramKkTarget(resolvedTelegramUserId, target, target.substring(1));
+      }
+
+      try {
+         long telegramUserId = Long.parseLong(target);
+         return telegramUserId > 0L ? new DataQueryBot.TelegramKkTarget(telegramUserId, target, null) : null;
+      } catch (NumberFormatException var7) {
          return null;
       }
    }
@@ -1822,6 +1962,384 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       }
    }
 
+   private void handleWhitelistTemplateCommand(Message message, String argument) {
+      if (message == null || message.getFrom() == null || message.getFrom().getId() == null) {
+         return;
+      }
+
+      long operatorId = message.getFrom().getId();
+      if (!message.isUserMessage()) {
+         this.sendMessage(message.getChatId(), "🔒 白名单赠送模板只支持私聊机器人配置。");
+         return;
+      }
+
+      if (!this.telegramBotAuthorizationService.hasPermission(operatorId, TelegramBotPermission.USER_WHITELIST)) {
+         this.sendMessage(message.getChatId(), "❌ 当前账号没有配置白名单赠送模板的权限。");
+         return;
+      }
+
+      String input = argument == null ? "" : argument.trim();
+      if (!StringUtils.hasText(input) || "help".equalsIgnoreCase(input)) {
+         this.sendMessage(message.getChatId(), this.whitelistTemplateHelp(operatorId));
+         return;
+      }
+
+      String[] parts = input.split("\\s+", 2);
+      String action = parts[0].toLowerCase(Locale.ROOT);
+      String rest = parts.length > 1 ? parts[1].trim() : "";
+      TelegramResponse telegram = this.telegramClientUtils.getTelegramResponse();
+      List<String> templates = this.whitelistGiftTemplates(telegram);
+      Map<String, String> adminTemplates = this.whitelistGiftAdminTemplates(telegram);
+      String currentMode = this.normalizeWhitelistTemplateMode(telegram == null ? null : telegram.getWhitelistGiftTemplateMode());
+
+      switch (action) {
+         case "random", "fixed", "admin" -> {
+            if (!this.requireWhitelistTemplateOwner(message)) {
+               return;
+            }
+
+            if (this.saveWhitelistGiftTemplateConfig(action, templates, adminTemplates)) {
+               this.sendMessage(message.getChatId(), "✅ 白名单赠送策略已切换为：" + this.whitelistGiftModeLabel(action) + "。\n\n" + this.whitelistTemplateStatus(operatorId));
+            }
+         }
+         case "add" -> {
+            if (!this.requireWhitelistTemplateOwner(message)) {
+               return;
+            }
+
+            String template = this.normalizeWhitelistTemplateInput(rest);
+            if (!StringUtils.hasText(template)) {
+               this.sendMessage(message.getChatId(), "用法：`/whitetemplate add 文案内容`\n文案可以只写开场句，也可以使用占位符写完整消息。");
+               return;
+            }
+
+            if (templates.size() >= WHITELIST_TEMPLATE_MAX_COUNT) {
+               this.sendMessage(message.getChatId(), "❌ 全局模板最多保存 " + WHITELIST_TEMPLATE_MAX_COUNT + " 条。");
+               return;
+            }
+
+            if (templates.contains(template)) {
+               this.sendMessage(message.getChatId(), "ℹ️ 这条全局模板已经存在。");
+               return;
+            }
+
+            templates.add(template);
+            if (this.saveWhitelistGiftTemplateConfig(currentMode, templates, adminTemplates)) {
+               this.sendMessage(message.getChatId(), "✅ 已加入第 " + templates.size() + " 条全局赠送模板。\n\n" + this.whitelistTemplateStatus(operatorId));
+            }
+         }
+         case "remove", "delete", "del" -> {
+            if (!this.requireWhitelistTemplateOwner(message)) {
+               return;
+            }
+
+            int index = this.parsePositiveInt(rest);
+            if (index < 1 || index > templates.size()) {
+               this.sendMessage(message.getChatId(), "用法：`/whitetemplate remove 序号`\n当前全局模板序号范围：1-" + templates.size() + "。");
+               return;
+            }
+
+            templates.remove(index - 1);
+            if (this.saveWhitelistGiftTemplateConfig(currentMode, templates, adminTemplates)) {
+               this.sendMessage(message.getChatId(), "✅ 已删除第 " + index + " 条全局赠送模板。\n\n" + this.whitelistTemplateStatus(operatorId));
+            }
+         }
+         case "clear" -> {
+            if (!this.requireWhitelistTemplateOwner(message)) {
+               return;
+            }
+
+            if (this.saveWhitelistGiftTemplateConfig(currentMode, List.of(), adminTemplates)) {
+               this.sendMessage(message.getChatId(), "✅ 全局自定义模板已清空，将回退到 Mist 内置雾语模板。\n\n" + this.whitelistTemplateStatus(operatorId));
+            }
+         }
+         case "reset" -> {
+            if (!this.requireWhitelistTemplateOwner(message)) {
+               return;
+            }
+
+            if (this.saveWhitelistGiftTemplateConfig("random", List.of(), Map.of())) {
+               this.sendMessage(message.getChatId(), "✅ 白名单赠送模板已恢复默认随机模式，并清除所有管理员绑定。\n\n" + this.whitelistTemplateStatus(operatorId));
+            }
+         }
+         case "bind", "set" -> {
+            if (!StringUtils.hasText(rest)) {
+               this.sendMessage(message.getChatId(), "用法：`/whitetemplate bind me 文案`\nOwner 也可以使用：`/whitetemplate bind TelegramID 文案`");
+               return;
+            }
+
+            String[] bindParts = rest.split("\\s+", 2);
+            if (bindParts.length < 2 || !StringUtils.hasText(bindParts[1])) {
+               this.sendMessage(message.getChatId(), "用法：`/whitetemplate bind me 文案`\n模板中可使用 `{{recipient}}`、`{{operator}}`、`{{recipientName}}`、`{{operatorName}}`。");
+               return;
+            }
+
+            String targetToken = bindParts[0].trim();
+            long targetId = "me".equalsIgnoreCase(targetToken) ? operatorId : this.parseTelegramId(targetToken);
+            if (targetId <= 0L) {
+               this.sendMessage(message.getChatId(), "❌ Telegram ID 必须是正整数；给自己绑定请使用 `me`。");
+               return;
+            }
+
+            if (targetId != operatorId && !this.isBotOwner(operatorId)) {
+               this.sendMessage(message.getChatId(), "❌ 只有机器人 Owner 可以为其他管理员绑定模板；你可以使用 `bind me` 设置自己的模板。");
+               return;
+            }
+
+            String template = this.normalizeWhitelistTemplateInput(bindParts[1]);
+            if (!StringUtils.hasText(template)) {
+               this.sendMessage(message.getChatId(), "❌ 模板内容不能为空。");
+               return;
+            }
+
+            adminTemplates.put(String.valueOf(targetId), template);
+            if (this.saveWhitelistGiftTemplateConfig(currentMode, templates, adminTemplates)) {
+               this.sendMessage(message.getChatId(), "✅ 已为 Telegram ID `" + targetId + "` 绑定专属白名单赠送模板。\n绑定模板会优先于全局随机/固定模板生效。");
+            }
+         }
+         case "unbind", "unset" -> {
+            String targetToken = StringUtils.hasText(rest) ? rest.split("\\s+", 2)[0].trim() : "me";
+            long targetId = "me".equalsIgnoreCase(targetToken) ? operatorId : this.parseTelegramId(targetToken);
+            if (targetId <= 0L) {
+               this.sendMessage(message.getChatId(), "用法：`/whitetemplate unbind me`，Owner 也可以填写 Telegram ID。");
+               return;
+            }
+
+            if (targetId != operatorId && !this.isBotOwner(operatorId)) {
+               this.sendMessage(message.getChatId(), "❌ 只有机器人 Owner 可以解除其他管理员的模板绑定。");
+               return;
+            }
+
+            if (!adminTemplates.containsKey(String.valueOf(targetId))) {
+               this.sendMessage(message.getChatId(), "ℹ️ 这个管理员目前没有专属模板绑定。");
+               return;
+            }
+
+            adminTemplates.remove(String.valueOf(targetId));
+            if (this.saveWhitelistGiftTemplateConfig(currentMode, templates, adminTemplates)) {
+               this.sendMessage(message.getChatId(), "✅ 已解除 Telegram ID `" + targetId + "` 的专属模板绑定。");
+            }
+         }
+         case "list", "show", "status" -> this.sendMessage(message.getChatId(), this.whitelistTemplateStatus(operatorId));
+         default -> this.sendMessage(message.getChatId(), this.whitelistTemplateHelp(operatorId));
+      }
+   }
+
+   private boolean requireWhitelistTemplateOwner(Message message) {
+      if (message != null && message.getFrom() != null && message.getFrom().getId() != null && this.isBotOwner(message.getFrom().getId())) {
+         return true;
+      }
+
+      if (message != null) {
+         this.sendMessage(message.getChatId(), "❌ 全局模式、全局模板和其他管理员绑定只能由机器人 Owner 修改。你可以使用 `/whitetemplate bind me 文案` 设置自己的专属模板。");
+      }
+
+      return false;
+   }
+
+   private String whitelistTemplateHelp(long operatorId) {
+      StringBuilder help = new StringBuilder();
+      help.append("🌁 白名单赠送模板\n\n");
+      help.append(this.whitelistTemplateStatus(operatorId)).append("\n\n");
+      help.append("优先级：管理员专属模板 > 全局模板 > Mist 内置雾语模板。\n");
+      help.append("只写普通文案时会自动接上获赠人与赠送管理员信息；写完整模板时可使用：\n");
+      help.append("`{{recipient}}` 获赠人 mention\n");
+      help.append("`{{operator}}` 赠送管理员 mention\n");
+      help.append("`{{recipientName}}` Emby 用户名\n");
+      help.append("`{{operatorName}}` 管理员显示名\n\n");
+      help.append("Owner 命令：\n");
+      help.append("`/whitetemplate random` 全局随机\n");
+      help.append("`/whitetemplate fixed` 全局固定第一条\n");
+      help.append("`/whitetemplate add 文案` 添加全局模板\n");
+      help.append("`/whitetemplate remove 序号` 删除全局模板\n");
+      help.append("`/whitetemplate clear` 清空全局模板\n");
+      help.append("`/whitetemplate bind TelegramID 文案` 绑定指定管理员\n");
+      help.append("`/whitetemplate reset` 恢复默认\n\n");
+      help.append("所有管理员都可以：`/whitetemplate bind me 文案` 或 `/whitetemplate unbind me`");
+      return help.toString();
+   }
+
+   private String whitelistTemplateStatus(long operatorId) {
+      TelegramResponse telegram = this.telegramClientUtils.getTelegramResponse();
+      String mode = this.normalizeWhitelistTemplateMode(telegram == null ? null : telegram.getWhitelistGiftTemplateMode());
+      List<String> templates = this.whitelistGiftTemplates(telegram);
+      Map<String, String> adminTemplates = this.whitelistGiftAdminTemplates(telegram);
+      StringBuilder status = new StringBuilder();
+      status.append("当前策略：").append(this.whitelistGiftModeLabel(mode)).append("\n");
+      status.append("全局模板：").append(templates.size()).append(" 条\n");
+      if (templates.isEmpty()) {
+         status.append("  （未设置，使用 Mist 内置雾语模板）\n");
+      } else {
+         int shown = Math.min(templates.size(), 10);
+         for (int index = 0; index < shown; index++) {
+            status.append("  ").append(index + 1).append(". ").append(this.previewWhitelistTemplate(templates.get(index))).append("\n");
+         }
+         if (templates.size() > shown) {
+            status.append("  … 其余 ").append(templates.size() - shown).append(" 条请用序号管理\n");
+         }
+      }
+
+      String ownTemplate = adminTemplates.get(String.valueOf(operatorId));
+      status.append("我的专属模板：").append(StringUtils.hasText(ownTemplate) ? this.previewWhitelistTemplate(ownTemplate) : "未绑定").append("\n");
+      if (this.isBotOwner(operatorId) && !adminTemplates.isEmpty()) {
+         status.append("管理员绑定：").append(adminTemplates.size()).append(" 条");
+      }
+      return status.toString().trim();
+   }
+
+   private String previewWhitelistTemplate(String template) {
+      if (!StringUtils.hasText(template)) {
+         return "（空）";
+      }
+
+      String preview = template.replace('\n', ' ').replace('\r', ' ').trim();
+      if (preview.length() > 120) {
+         preview = preview.substring(0, 117) + "...";
+      }
+
+      return "`" + this.escapeMarkdown(preview) + "`";
+   }
+
+   private String normalizeWhitelistTemplateInput(String template) {
+      if (!StringUtils.hasText(template)) {
+         return "";
+      }
+
+      String normalized = template.trim();
+      return normalized.length() > WHITELIST_TEMPLATE_MAX_LENGTH ? normalized.substring(0, WHITELIST_TEMPLATE_MAX_LENGTH) : normalized;
+   }
+
+   private int parsePositiveInt(String value) {
+      if (!StringUtils.hasText(value)) {
+         return 0;
+      }
+
+      try {
+         int parsed = Integer.parseInt(value.trim());
+         return parsed > 0 ? parsed : 0;
+      } catch (NumberFormatException ignored) {
+         return 0;
+      }
+   }
+
+   private String normalizeWhitelistTemplateMode(String mode) {
+      String normalized = StringUtils.hasText(mode) ? mode.trim().toLowerCase(Locale.ROOT) : "random";
+      return Set.of("random", "fixed", "admin").contains(normalized) ? normalized : "random";
+   }
+
+   private String whitelistGiftModeLabel(String mode) {
+      return switch (this.normalizeWhitelistTemplateMode(mode)) {
+         case "fixed" -> "固定第一条全局模板";
+         case "admin" -> "管理员模板优先，其他用户随机";
+         default -> "全局随机模板";
+      };
+   }
+
+   private List<String> whitelistGiftTemplates(TelegramResponse telegram) {
+      List<String> result = new ArrayList<>();
+      if (telegram == null || telegram.getWhitelistGiftTemplates() == null) {
+         return result;
+      }
+
+      for (String template : telegram.getWhitelistGiftTemplates()) {
+         String normalized = this.normalizeWhitelistTemplateInput(template);
+         if (StringUtils.hasText(normalized) && !result.contains(normalized)) {
+            result.add(normalized);
+         }
+         if (result.size() >= WHITELIST_TEMPLATE_MAX_COUNT) {
+            break;
+         }
+      }
+
+      return result;
+   }
+
+   private Map<String, String> whitelistGiftAdminTemplates(TelegramResponse telegram) {
+      Map<String, String> result = new LinkedHashMap<>();
+      if (telegram == null || telegram.getWhitelistGiftAdminTemplates() == null) {
+         return result;
+      }
+
+      telegram.getWhitelistGiftAdminTemplates().forEach((telegramId, template) -> {
+         long parsedId = this.parseTelegramId(telegramId);
+         String normalized = this.normalizeWhitelistTemplateInput(template);
+         if (parsedId > 0L && StringUtils.hasText(normalized)) {
+            result.put(String.valueOf(parsedId), normalized);
+         }
+      });
+      return result;
+   }
+
+   private boolean saveWhitelistGiftTemplateConfig(String mode, List<String> templates, Map<String, String> adminTemplates) {
+      try {
+         NotifyChannel channel = this.notifyChannelService
+            .lambdaQuery()
+            .eq(NotifyChannel::getIconType, "telegram")
+            .eq(NotifyChannel::getEnabled, Integer.valueOf(1))
+            .one();
+         if (channel == null) {
+            this.sendMessage(this.parseTelegramId(this.telegramClientUtils.getTelegramResponse() == null ? null : this.telegramClientUtils.getTelegramResponse().getBotChatId()), "❌ Telegram 通知渠道尚未启用，无法保存赠送模板。");
+            return false;
+         }
+
+         JSONObject params = StringUtils.hasText(channel.getParams()) ? JSON.parseObject(channel.getParams()) : new JSONObject();
+         if (params == null) {
+            params = new JSONObject();
+         }
+
+         List<String> normalizedTemplates = this.whitelistGiftTemplatesFromList(templates);
+         Map<String, String> normalizedAdminTemplates = this.whitelistGiftAdminTemplatesFromMap(adminTemplates);
+         params.put("whitelistGiftTemplateMode", this.normalizeWhitelistTemplateMode(mode));
+         params.put("whitelistGiftTemplates", normalizedTemplates);
+         params.put("whitelistGiftAdminTemplates", normalizedAdminTemplates);
+         channel.setParams(params.toJSONString());
+         if (!this.notifyChannelService.updateById(channel)) {
+            this.sendMessage(this.parseTelegramId(this.telegramClientUtils.getTelegramResponse() == null ? null : this.telegramClientUtils.getTelegramResponse().getBotChatId()), "❌ 白名单赠送模板保存失败，请稍后重试。");
+            return false;
+         }
+
+         this.notifyChannelCacheLoaderUtils.loadConfigCache();
+         return true;
+      } catch (Exception exception) {
+         log.error("保存白名单赠送模板失败", exception);
+         long ownerId = this.parseTelegramId(this.telegramClientUtils.getTelegramResponse() == null ? null : this.telegramClientUtils.getTelegramResponse().getBotChatId());
+         if (ownerId > 0L) {
+            this.sendMessage(ownerId, "❌ 白名单赠送模板保存失败，请检查配置或稍后重试。");
+         }
+         return false;
+      }
+   }
+
+   private List<String> whitelistGiftTemplatesFromList(List<String> templates) {
+      List<String> result = new ArrayList<>();
+      if (templates != null) {
+         for (String template : templates) {
+            String normalized = this.normalizeWhitelistTemplateInput(template);
+            if (StringUtils.hasText(normalized) && !result.contains(normalized)) {
+               result.add(normalized);
+            }
+            if (result.size() >= WHITELIST_TEMPLATE_MAX_COUNT) {
+               break;
+            }
+         }
+      }
+      return result;
+   }
+
+   private Map<String, String> whitelistGiftAdminTemplatesFromMap(Map<String, String> adminTemplates) {
+      Map<String, String> result = new LinkedHashMap<>();
+      if (adminTemplates != null) {
+         adminTemplates.forEach((telegramId, template) -> {
+            long parsedId = this.parseTelegramId(telegramId);
+            String normalized = this.normalizeWhitelistTemplateInput(template);
+            if (parsedId > 0L && StringUtils.hasText(normalized)) {
+               result.put(String.valueOf(parsedId), normalized);
+            }
+         });
+      }
+      return result;
+   }
+
    private EmbyUser resolveAdminCommandTarget(Message message, String argument, boolean requireReplyInGroup) {
       if (!message.isUserMessage()) {
          Message replied = message.getReplyToMessage();
@@ -1888,20 +2406,62 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    }
 
    private boolean canBotOperatorViewTarget(long operatorId, EmbyUser target) {
-      return target == null
-         ? false
-         : this.isBotOwner(operatorId) || !Integer.valueOf(1).equals(target.getIsAdmin()) && !Integer.valueOf(1).equals(target.getIsPrimaryAdmin());
+      return target != null;
    }
 
-   private boolean isKkProtectedEmbyTarget(EmbyUser target) {
-      if (target == null) {
-         return false;
-      } else if (!Integer.valueOf(1).equals(target.getIsAdmin()) && !Integer.valueOf(1).equals(target.getIsPrimaryAdmin())) {
-         Long boundTelegramUserId = this.resolveBoundTelegramUserId(target);
-         return boundTelegramUserId != null && this.isKkProtectedTelegramTarget(boundTelegramUserId);
+   private int telegramOperatorLevel(long telegramUserId) {
+      if (this.telegramBotAuthorizationService.isOwner(telegramUserId)) {
+         return 3;
       } else {
-         return true;
+         return this.telegramBotAuthorizationService.isConfiguredAdmin(telegramUserId) ? 2 : 1;
       }
+   }
+
+   private int telegramTargetLevel(long telegramUserId) {
+      return this.telegramOperatorLevel(telegramUserId);
+   }
+
+   private boolean canBotOperatorOperateTelegramTarget(long operatorId, long targetTelegramUserId) {
+      return operatorId > 0L
+         && targetTelegramUserId > 0L
+         && this.telegramOperatorLevel(operatorId) > this.telegramTargetLevel(targetTelegramUserId);
+   }
+
+   private int kkTargetLevel(EmbyUser target) {
+      if (target == null) {
+         return 0;
+      } else if (Integer.valueOf(1).equals(target.getIsPrimaryAdmin())) {
+         return 3;
+      } else if (Integer.valueOf(1).equals(target.getIsAdmin())) {
+         return 2;
+      } else {
+         Long boundTelegramUserId = this.resolveBoundTelegramUserId(target);
+         return boundTelegramUserId == null ? 1 : this.telegramTargetLevel(boundTelegramUserId);
+      }
+   }
+
+   private boolean canBotOperatorOperateTarget(long operatorId, EmbyUser target) {
+      return target != null && this.telegramOperatorLevel(operatorId) > this.kkTargetLevel(target);
+   }
+
+   private boolean isAdminUserPanelMutationAction(String action) {
+      return Set.of(
+            "enable",
+            "disable",
+            "delete",
+            "delete_confirm",
+            "update",
+            "expiry",
+            "password",
+            "whitelist",
+            "unwhite7",
+            "unwhite30",
+            "unwhite90",
+            "kickban",
+            "mute",
+            "unmute"
+         )
+         .contains(action);
    }
 
    private boolean isKkProtectedTelegramTarget(long telegramUserId) {
@@ -1928,20 +2488,13 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    }
 
    private boolean renderAdminUserPanel(long operatorId, EmbyUser target, Message panelMessage, String notice, long destinationChatId, boolean publicPanel) {
-      if (target != null && this.isKkProtectedEmbyTarget(target)) {
-         if (panelMessage == null) {
-            this.sendMessage(destinationChatId, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
-         } else {
-            this.editStartPanelMessage(panelMessage, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
-         }
-
-         return false;
-      } else if (target != null && this.canBotOperatorViewTarget(operatorId, target)) {
+      if (target != null && this.canBotOperatorViewTarget(operatorId, target)) {
          String token = UUID.randomUUID().toString().replace("-", "");
          this.stringRedisTemplate.opsForValue().set("bot:admin:panel:" + token, operatorId + ":" + target.getId(), 10L, TimeUnit.MINUTES);
          EmbyInfo server = target.getEmbyInfoId() == null ? null : this.embyInfoService.getById(target.getEmbyInfoId());
+         boolean canOperate = this.canBotOperatorOperateTarget(operatorId, target);
          boolean whitelist = HostLineTypeEnum.normalize(target.getHostLineType()) == HostLineTypeEnum.WHITELIST.getCode();
-         boolean canManageWhitelist = this.telegramBotAuthorizationService.hasPermission(operatorId, TelegramBotPermission.USER_WHITELIST);
+         boolean canManageWhitelist = canOperate && this.telegramBotAuthorizationService.hasPermission(operatorId, TelegramBotPermission.USER_WHITELIST);
          String expiration = whitelist
             ? "长期有效"
             : (
@@ -1954,56 +2507,65 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                      .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
             );
          String text = this.foamPanelTitle("用户管理")
-            + "账号：`"
+            + "*· 👤 账号* | `"
             + this.escapeMarkdown(target.getEmbyUserName())
-            + "`\n服务器："
+            + "`\n"
+            + "*· 🖥 服务器* | "
             + this.escapeMarkdown(this.buildServerLabel(server))
-            + "\n状态："
+            + "\n"
+            + "*· 📡 状态* | "
             + (Integer.valueOf(1).equals(target.getUserStatus()) ? "\ud83d\udd34 已禁用" : "\ud83d\udfe2 正常")
-            + "\n线路："
+            + "\n"
+            + "*· 🧭 线路* | "
             + (whitelist ? "白名单 · 全部线路" : "普通线路")
-            + "\n有效期："
+            + "\n"
+            + "*· ⏳ 有效期* | "
             + expiration
-            + "\n求片额度："
+            + "\n"
+            + "*· 🎬 求片额度* | "
             + (target.getRequestPackagesCount() == null ? 0 : target.getRequestPackagesCount());
          if (whitelist && canManageWhitelist) {
-            text = text + "\n\n↩️ 移出白名单并重置有效期：";
+          text = text + "\n\n" + MistTelegramStyle.markdownSection("白名单操作") + "↩️ 移出白名单并重置有效期";
+          }
+
+         if (!canOperate) {
+            text = text + "\n\n" + MistTelegramStyle.markdownSection("权限范围") + "👁️ 当前级别仅可查看，同级账号不能执行修改、删除或群管理操作。";
          }
 
          if (publicPanel) {
-            text = text + "\n\n\ud83c\udf01 [管理员](tg://user?id=" + operatorId + ") 拨开这层账号薄雾，操作会在这里留下微光。";
+            text = text + "\n\n" + MistTelegramStyle.markdownSection("操作来源") + "🌁 [管理员](tg://user?id=" + operatorId + ") 已打开此面板。";
          }
 
          if (StringUtils.hasText(notice)) {
             text = text + "\n\n" + notice;
          }
 
-         List<InlineKeyboardRow> rows = new ArrayList<>();
-         List<InlineKeyboardButton> publicActionButtons = new ArrayList<>();
-         if (this.telegramBotAuthorizationService.hasPermission(operatorId, TelegramBotPermission.USER_STATUS)) {
-            InlineKeyboardButton statusButton = InlineKeyboardButton.builder()
-               .text(Integer.valueOf(1).equals(target.getUserStatus()) ? "\ud83d\udfe2 启用用户" : "\ud83d\udd34 禁用用户")
-               .callbackData("admin_user:" + token + ":" + (Integer.valueOf(1).equals(target.getUserStatus()) ? "enable" : "disable"))
-               .build();
-            if (publicPanel) {
-               publicActionButtons.add(statusButton);
-            } else {
-               rows.add(new InlineKeyboardRow(statusButton));
-            }
+          List<InlineKeyboardRow> rows = new ArrayList<>();
+          List<InlineKeyboardButton> publicActionButtons = new ArrayList<>();
+           if (canOperate && this.telegramBotAuthorizationService.hasPermission(operatorId, TelegramBotPermission.USER_STATUS)) {
+             InlineKeyboardButton deleteButton = InlineKeyboardButton.builder()
+                .text("🗑 删除账号")
+                .callbackData("admin_user:" + token + ":delete")
+                .build();
+             if (publicPanel) {
+                publicActionButtons.add(deleteButton);
+             } else {
+                rows.add(new InlineKeyboardRow(deleteButton));
+             }
 
             if (!publicPanel && !whitelist) {
                rows.add(
                   new InlineKeyboardRow(
-                     InlineKeyboardButton.builder().text("\ud83d\udcdd 改期限/额度").callbackData("admin_user:" + token + ":update").build(),
-                     InlineKeyboardButton.builder().text("⏰ 改期并启用").callbackData("admin_user:" + token + ":expiry").build()
+                     InlineKeyboardButton.builder().text("📝 修改期限/额度").callbackData("admin_user:" + token + ":update").build(),
+                     InlineKeyboardButton.builder().text("⏱ 延期并启用").callbackData("admin_user:" + token + ":expiry").build()
                   )
                );
             }
          }
 
-         if (!publicPanel && this.telegramBotAuthorizationService.hasPermission(operatorId, TelegramBotPermission.USER_PASSWORD)) {
+          if (canOperate && !publicPanel && this.telegramBotAuthorizationService.hasPermission(operatorId, TelegramBotPermission.USER_PASSWORD)) {
             rows.add(
-               new InlineKeyboardRow(InlineKeyboardButton.builder().text("\ud83d\udd11 重置用户密码").callbackData("admin_user:" + token + ":password").build())
+               new InlineKeyboardRow(InlineKeyboardButton.builder().text("🔐 重置密码").callbackData("admin_user:" + token + ":password").build())
             );
          }
 
@@ -2024,17 +2586,17 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          boolean canModerateTelegramMember = publicPanel
             && boundTelegramUserId != null
             && boundTelegramUserId != operatorId
-            && !this.isKkProtectedTelegramTarget(boundTelegramUserId)
-            && this.canAuthorizedAdminModerateGroup(operatorId);
+             && canOperate
+             && this.canAuthorizedAdminModerateGroup(operatorId);
          if (canModerateTelegramMember) {
             boolean muted = this.isGroupMemberMuted(destinationChatId, boundTelegramUserId);
             publicActionButtons.add(
                InlineKeyboardButton.builder()
-                  .text(muted ? "\ud83d\udd0a 解除禁言" : "\ud83d\udd07 禁言用户")
+               .text(muted ? "🔊 解除禁言" : "🔇 禁言成员")
                   .callbackData("admin_user:" + token + ":" + (muted ? "unmute" : "mute"))
                   .build()
             );
-            publicActionButtons.add(InlineKeyboardButton.builder().text("\ud83d\udeab 踢出并封禁").callbackData("admin_user:" + token + ":kickban").build());
+            publicActionButtons.add(InlineKeyboardButton.builder().text("🚫 踢出并封禁").callbackData("admin_user:" + token + ":kickban").build());
          }
 
          for (int index = 0; index < publicActionButtons.size(); index += 2) {
@@ -2044,9 +2606,9 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
 
          rows.add(
             new InlineKeyboardRow(
-               InlineKeyboardButton.builder().text("\ud83d\udd04 刷新").callbackData("admin_user:" + token + ":refresh").build(),
+               InlineKeyboardButton.builder().text("↻ 刷新").callbackData("admin_user:" + token + ":refresh").build(),
                InlineKeyboardButton.builder()
-                  .text(publicPanel ? "❌ 收起面板" : "\ud83d\udee1️ 管理中心")
+                  .text(publicPanel ? "✕ 收起面板" : "🛡 管理中心")
                   .callbackData("admin_user:" + token + ":" + (publicPanel ? "close" : "back"))
                   .build()
             )
@@ -2103,14 +2665,6 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    ) {
       if (target == null || target.getTelegramUserId() <= 0L) {
          return false;
-      } else if (this.isKkProtectedTelegramTarget(target.getTelegramUserId())) {
-         if (panelMessage == null) {
-            this.sendMessage(destinationChatId, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
-         } else {
-            this.editStartPanelMessage(panelMessage, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
-         }
-
-         return false;
       } else {
          EmbyUser boundUser = this.telegramBindingManager.findBoundUser(target.getTelegramUserId(), false);
          if (boundUser == null) {
@@ -2119,38 +2673,37 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                .opsForValue()
                .set("bot:admin:telegram-panel:" + sessionToken, operatorId + ":" + target.getTelegramUserId(), 10L, TimeUnit.MINUTES);
             String text = this.foamPanelTitle("群成员")
-               + "成员："
+               + "*· 👤 成员* | "
                + this.telegramUserMention(target.getTelegramUserId(), target.getDisplayName())
-               + "\nTelegram ID：`"
+               + "\n"
+               + "*· 🪪 Telegram ID* | `"
                + target.getTelegramUserId()
-               + "`\n账号状态：尚未关联 Mist 账号";
+                + "`\n"
+                + "*· 🔗 账号状态* | 尚未关联 Mist 账号";
+             boolean canOperate = this.canBotOperatorOperateTelegramTarget(operatorId, target.getTelegramUserId());
+             if (!canOperate) {
+                text = text + "\n\n" + MistTelegramStyle.markdownSection("权限范围") + "👁️ 同级成员仅可查看，高一级管理员才可以执行操作。";
+             }
             if (StringUtils.hasText(notice)) {
-               text = text + "\n\n" + notice;
+               text = text + "\n\n" + MistTelegramStyle.markdownSection("最近反馈") + notice;
             }
 
             List<InlineKeyboardRow> rows = new ArrayList<>();
-            if (this.telegramBotAuthorizationService.hasPermission(operatorId, TelegramBotPermission.USER_CREATE)) {
-               TelegramResponse telegram = this.telegramClientUtils.getTelegramResponse();
-               String botName = telegram == null ? null : telegram.getBotName();
-               if (StringUtils.hasText(botName)) {
-                  rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder().text("✨ 创建账号").callbackData("admin_tg:" + sessionToken + ":gift").build()));
-               }
-            }
-
-            if (this.canAuthorizedAdminModerateGroup(operatorId)) {
-               boolean muted = this.isGroupMemberMuted(destinationChatId, target.getTelegramUserId());
-               rows.add(
-                  new InlineKeyboardRow(
-                     InlineKeyboardButton.builder()
-                        .text(muted ? "\ud83d\udd0a 解除禁言" : "\ud83d\udd07 禁言用户")
-                        .callbackData("admin_tg:" + sessionToken + ":" + (muted ? "unmute" : "mute"))
-                        .build(),
-                     InlineKeyboardButton.builder().text("\ud83d\udeab 踢出并封禁").callbackData("admin_tg:" + sessionToken + ":kickban").build()
-                  )
-               );
-            }
-
-            rows.add(new InlineKeyboardRow(InlineKeyboardButton.builder().text("❌ 收起面板").callbackData("admin_tg:" + sessionToken + ":close").build()));
+             TelegramResponse telegram = this.telegramClientUtils.getTelegramResponse();
+             String botName = telegram == null ? null : telegram.getBotName();
+             InlineKeyboardButton closeButton = InlineKeyboardButton.builder()
+                .text("✕ 取消")
+                .callbackData("admin_tg:" + sessionToken + ":close")
+                .build();
+             if (canOperate && this.telegramBotAuthorizationService.hasPermission(operatorId, TelegramBotPermission.USER_CREATE) && StringUtils.hasText(botName)) {
+                InlineKeyboardButton giftButton = InlineKeyboardButton.builder()
+                   .text("🌁 开通 Mist 账号")
+                   .callbackData("admin_tg:" + sessionToken + ":gift")
+                   .build();
+                rows.add(new InlineKeyboardRow(giftButton, closeButton));
+             } else {
+                rows.add(new InlineKeyboardRow(closeButton));
+             }
             InlineKeyboardMarkup keyboard = InlineKeyboardMarkup.builder().keyboard(rows).build();
             if (panelMessage == null) {
                return this.sendExpiringAdminKeyboardMessage(destinationChatId, text, keyboard);
@@ -2158,15 +2711,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                this.editStartPanelMessage(panelMessage, text, keyboard);
                return true;
             }
-         } else if (this.isKkProtectedEmbyTarget(boundUser)) {
-            if (panelMessage == null) {
-               this.sendMessage(destinationChatId, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
-            } else {
-               this.editStartPanelMessage(panelMessage, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
-            }
-
-            return false;
-         } else {
+          } else {
             return panelMessage == null
                ? this.sendAdminUserPanelToChat(operatorId, boundUser, destinationChatId, true)
                : this.renderAdminUserPanel(operatorId, boundUser, panelMessage, notice);
@@ -2180,11 +2725,38 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       String previousToken = this.stringRedisTemplate.opsForValue().get(targetGrantKey);
       if (StringUtils.hasText(previousToken)) {
          this.stringRedisTemplate.delete("bot:kk:register:" + previousToken);
+         this.deleteKkRegistrationPanel(previousToken);
       }
 
       this.stringRedisTemplate.opsForValue().set("bot:kk:register:" + token, operatorId + ":" + targetTelegramUserId, 30L, TimeUnit.MINUTES);
       this.stringRedisTemplate.opsForValue().set(targetGrantKey, token, 30L, TimeUnit.MINUTES);
       return token;
+   }
+
+   private void rememberKkRegistrationPanel(String token, long chatId, Integer messageId) {
+      if (StringUtils.hasText(token) && messageId != null) {
+         this.stringRedisTemplate
+            .opsForValue()
+            .set("bot:kk:register:panel:" + token, chatId + ":" + messageId, 30L, TimeUnit.MINUTES);
+      }
+   }
+
+   private void deleteKkRegistrationPanel(String token) {
+      if (StringUtils.hasText(token)) {
+         String key = "bot:kk:register:panel:" + token;
+         String panel = this.stringRedisTemplate.opsForValue().get(key);
+         this.stringRedisTemplate.delete(key);
+         if (StringUtils.hasText(panel)) {
+            String[] parts = panel.split(":", 2);
+            if (parts.length == 2) {
+               long chatId = this.parseTelegramId(parts[0]);
+               long messageId = this.parseTelegramId(parts[1]);
+               if (chatId != 0L && messageId > 0L) {
+                  this.deleteMessageSilently(chatId, (int)messageId);
+               }
+            }
+         }
+      }
    }
 
    private InlineKeyboardRow buildWhitelistRemovalRow(String token) {
@@ -2625,7 +3197,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          case "home":
             boolean owner = this.isBotOwner(userId);
             boolean admin = this.telegramBotAuthorizationService.isAdmin(userId);
-            text = this.buildStartPanelHomeText(owner, admin);
+            text = this.buildStartPanelHomeText(userId, owner, admin);
             keyboard = this.buildStartPanelHomeKeyboard(admin);
             break;
          case "account":
@@ -2725,7 +3297,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    }
 
    private String foamPanelTitle(String title) {
-      return "\ud83c\udf01 *Mist " + title + "*\n\n";
+      return MistTelegramStyle.markdownPanel(title);
    }
 
    private InlineKeyboardMarkup keyboard(List<InlineKeyboardButton> buttons, int columns) {
@@ -3446,8 +4018,9 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                   this.pendingTelegramMemberMutes.remove(operatorId, pending);
                   this.renderAdminTelegramMemberPanel(operatorId, pending.getTarget(), pending.getPanelMessage(), message.getChatId(), "ℹ️ 已取消本次输入。");
                   return true;
-               } else if (this.canAuthorizedAdminModerateGroup(operatorId)
-                  && this.telegramBotAuthorizationService.isConfiguredManagementGroup(message.getChatId())) {
+                } else if (this.canAuthorizedAdminModerateGroup(operatorId)
+                   && this.telegramBotAuthorizationService.isConfiguredManagementGroup(message.getChatId())
+                   && this.canBotOperatorOperateTelegramTarget(operatorId, pending.getTarget().getTelegramUserId())) {
                   int minutes;
                   try {
                      minutes = Integer.parseInt(input);
@@ -3605,11 +4178,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          return true;
       } else {
          EmbyUser exact = this.resolveAdminCommandTarget(message, input, false);
-         if (exact != null && this.isKkProtectedEmbyTarget(exact)) {
-            this.pendingPanelCommands.remove(operatorId, pending);
-            this.editStartPanelMessage(pending.getPanelMessage(), "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
-            return true;
-         } else if (exact != null && this.canBotOperatorViewTarget(operatorId, exact)) {
+          if (exact != null && this.canBotOperatorViewTarget(operatorId, exact)) {
             this.pendingPanelCommands.remove(operatorId, pending);
             this.pendingUserEdits.put(operatorId, new DataQueryBot.PendingUserEdit(operatorId, exact.getId()));
             this.renderAdminUserPanel(operatorId, exact, pending.getPanelMessage(), null);
@@ -3623,7 +4192,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                .last("limit 10")
                .list()
                .stream()
-               .filter(candidatex -> this.canBotOperatorViewTarget(operatorId, candidatex) && !this.isKkProtectedEmbyTarget(candidatex))
+               .filter(candidatex -> this.canBotOperatorViewTarget(operatorId, candidatex))
                .toList();
             if (matches.isEmpty()) {
                this.pendingPanelCommands.put(operatorId, pending.refresh());
@@ -3719,10 +4288,8 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                   return;
                }
 
-               if (this.isKkProtectedTelegramTarget(targetTelegramUserId)) {
-                  this.stringRedisTemplate.delete(sessionKey);
-                  this.answerCallbackQuery(callbackQuery.getId(), "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
-                  this.editStartPanelMessage(message, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
+               if (!"close".equals(action) && !this.canBotOperatorOperateTelegramTarget(operatorId, targetTelegramUserId)) {
+                  this.answerCallbackQuery(callbackQuery.getId(), "👁️ 同级成员仅可查看，请让更高一级管理员执行操作。");
                   return;
                }
 
@@ -3745,11 +4312,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                   EmbyUser boundUser = this.telegramBindingManager.findBoundUser(targetTelegramUserId, false);
                   if (boundUser != null) {
                      this.stringRedisTemplate.delete(sessionKey);
-                     if (this.isKkProtectedEmbyTarget(boundUser)) {
-                        this.editStartPanelMessage(message, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
-                     } else {
-                        this.renderAdminUserPanel(operatorId, boundUser, message, "\ud83c\udf01 这位成员已经关联 Mist 账号，已切换到账号面板。");
-                     }
+                     this.renderAdminUserPanel(operatorId, boundUser, message, "\ud83c\udf01 这位成员已经关联 Mist 账号，已切换到账号面板。");
 
                      return;
                   }
@@ -3759,27 +4322,33 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                   if (!StringUtils.hasText(botName)) {
                      this.renderAdminTelegramMemberPanel(operatorId, target, message, message.getChatId(), "❌ 机器人用户名尚未配置，暂时无法发送开户邀请。");
                      return;
-                  }
+                   }
 
-                  String grantToken = this.createKkRegistrationGrant(operatorId, targetTelegramUserId);
-                  boolean deliveredPrivately = this.sendKkRegistrationInvitationToTarget(target, botName, grantToken);
-                  this.stringRedisTemplate.delete(sessionKey);
-                  String normalizedBotName = botName.startsWith("@") ? botName : "@" + botName;
-                  String confirmation = this.foamPanelTitle("群成员")
-                     + "\ud83c\udf81 "
-                     + this.telegramUserMention(callbackQuery.getFrom())
-                     + " 已为 "
-                     + this.telegramUserMention(targetTelegramUserId, target.getDisplayName())
-                     + " 准备好开户资格。\n\n"
-                     + (
-                        deliveredPrivately
-                           ? "\ud83d\udce8 领取入口已经发送到目标用户私聊。"
-                           : "\ud83d\udcac 机器人暂时无法主动私聊目标用户，请让 TA 私聊 " + this.escapeMarkdown(normalizedBotName) + " 并发送 `/start` 领取。"
-                     )
-                     + "\n\n\ud83c\udf01 本提示将在 60 秒后自动收起。";
-                  this.editStartPanelMessage(message, confirmation, null);
-                  this.scheduleGroupMessageCleanup(message.getChatId(), message.getMessageId(), 60L, TimeUnit.SECONDS);
-                  return;
+                   String grantToken = this.createKkRegistrationGrant(operatorId, targetTelegramUserId);
+                   this.rememberKkRegistrationPanel(grantToken, message.getChatId(), message.getMessageId());
+                    boolean directMessageSent = this.sendKkRegistrationInvitationToTarget(target, botName, grantToken);
+                    this.stringRedisTemplate.delete(sessionKey);
+                    String confirmation = this.buildKkRegistrationGrantMessage(
+                       target,
+                       callbackQuery.getFrom(),
+                       operatorId,
+                       botName,
+                       directMessageSent
+                    );
+                    InlineKeyboardMarkup confirmationKeyboard = InlineKeyboardMarkup.builder()
+                      .keyboard(
+                         List.of(
+                            new InlineKeyboardRow(
+                               InlineKeyboardButton.builder()
+                                   .text("🎁 点击领取")
+                                  .url(this.buildPrivateBotUrl(botName, "kkreg_" + grantToken))
+                                  .build()
+                            )
+                         )
+                      )
+                      .build();
+                   this.editStartPanelMessage(message, confirmation, confirmationKeyboard);
+                   return;
                }
 
                if ("mute".equals(action)) {
@@ -3787,7 +4356,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                      .put(operatorId, new DataQueryBot.PendingTelegramMemberMute(target, message, System.currentTimeMillis() + START_PANEL_INPUT_TTL_MILLIS));
                   this.editStartPanelMessage(
                      message,
-                     this.foamPanelTitle("群成员") + "\ud83d\udd07 请回复本面板输入禁言分钟数：`1-525600`\n例如发送 `30`，表示禁言 30 分钟。\n\n⏳ 请在 10 分钟内发送；输入 `/cancel` 可取消。",
+                     this.foamPanelTitle("成员操作") + "🔇 *设置禁言时长*\n\n请回复本面板输入分钟数：`1-525600`\n例如发送 `30`，表示禁言 30 分钟。\n\n⏱ 10 分钟内有效；输入 `/cancel` 可取消。",
                      null
                   );
                   return;
@@ -3853,7 +4422,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          .keyboard(
             List.of(
                new InlineKeyboardRow(
-                  InlineKeyboardButton.builder().text("\ud83c\udf81 领取并创建账号").url(this.buildPrivateBotUrl(botName, "kkreg_" + grantToken)).build()
+                  InlineKeyboardButton.builder().text("🎁 领取开户资格").url(this.buildPrivateBotUrl(botName, "kkreg_" + grantToken)).build()
                )
             )
          )
@@ -3864,7 +4433,12 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             .execute(
                SendMessage.builder()
                   .chatId(target.getTelegramUserId())
-                  .text("\ud83c\udf81 *一份 Mist 账号礼物已经送达*\n\n点击下方按钮后输入想使用的 Emby 用户名；登录密码会由系统生成，并且只在这个私聊中发送。")
+                  .text(
+                     MistTelegramStyle.markdownPanel("开户资格")
+                        + "🎁 管理员已为你准备好 Emby 开户资格。\n\n"
+                        + "*· 下一步* | 点击下方按钮，输入想使用的 Emby 用户名。\n"
+                        + "*· 登录密码* | 系统安全生成，仅在本私聊发送。"
+                  )
                   .parseMode("Markdown")
                   .replyMarkup(keyboard)
                   .build()
@@ -3928,9 +4502,9 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             this.answerCallbackQuery(callbackQuery.getId(), "\ud83c\udf19 没有找到这片账号薄雾，请重新打开面板。");
             return;
          }
-         TelegramBotPermission requiredPermission = switch (action) {
-            case "refresh", "back", "close" -> TelegramBotPermission.USER_VIEW;
-            case "enable", "disable", "update", "expiry" -> TelegramBotPermission.USER_STATUS;
+          TelegramBotPermission requiredPermission = switch (action) {
+             case "refresh", "back", "close" -> TelegramBotPermission.USER_VIEW;
+             case "enable", "disable", "delete", "delete_confirm", "delete_cancel", "update", "expiry" -> TelegramBotPermission.USER_STATUS;
             case "kickban", "mute", "unmute" -> TelegramBotPermission.USER_VIEW;
             case "password" -> TelegramBotPermission.USER_PASSWORD;
             case "whitelist", "unwhite7", "unwhite30", "unwhite90" -> TelegramBotPermission.USER_WHITELIST;
@@ -3940,12 +4514,6 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          if (requiredPermission != null && allowedLocation && this.telegramBotAuthorizationService.hasPermission(operatorId, requiredPermission)) {
             this.answerCallbackQuery(callbackQuery.getId());
             EmbyUser target = this.embyUserService.getById(Long.valueOf(targetUserId));
-            if (target != null && this.isKkProtectedEmbyTarget(target)) {
-               this.stringRedisTemplate.delete(sessionKey);
-               this.editStartPanelMessage(message, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
-               return;
-            }
-
             if (target != null && this.canBotOperatorViewTarget(operatorId, target)) {
                if ("back".equals(action)) {
                   this.stringRedisTemplate.delete(sessionKey);
@@ -3972,12 +4540,42 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                   return;
                }
 
-               if ("refresh".equals(action)) {
+                if ("refresh".equals(action)) {
                   this.stringRedisTemplate.delete(sessionKey);
                   this.pendingPanelCommands.remove(operatorId);
-                  this.renderAdminUserPanel(operatorId, target, message, null);
-                  return;
-               }
+                 this.renderAdminUserPanel(operatorId, target, message, null);
+                   return;
+                }
+
+                if (this.isAdminUserPanelMutationAction(action) && !this.canBotOperatorOperateTarget(operatorId, target)) {
+                   this.renderAdminUserPanel(operatorId, target, message, "👁️ 同级账号仅可查看，不能执行这项操作；请让更高一级管理员处理。 ");
+                   return;
+                }
+
+                if ("delete".equals(action)) {
+                   this.editStartPanelMessage(
+                      message,
+                      this.foamPanelTitle("删除账号")
+                         + "⚠️ *确认删除这个账号？*\n\n"
+                         + "*· 账号* | `" + this.escapeMarkdown(target.getEmbyUserName()) + "`\n"
+                         + "*· 影响* | 本地账号、Telegram 绑定和远程 Emby 账号都会被删除。\n\n"
+                         + "此操作不可恢复，请确认后继续。",
+                      this.keyboard(
+                         List.of(
+                            this.button("🗑 确认删除", "admin_user:" + token + ":delete_confirm"),
+                            this.button("↩️ 取消", "admin_user:" + token + ":delete_cancel")
+                         ),
+                         2
+                      )
+                   );
+                   return;
+                }
+
+                if ("delete_cancel".equals(action)) {
+                   this.stringRedisTemplate.delete(sessionKey);
+                   this.renderAdminUserPanel(operatorId, target, message, "已取消删除，账号没有变化。\n");
+                   return;
+                }
 
                if ("mute".equals(action)) {
                   if (privatePanel) {
@@ -4019,9 +4617,12 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                      case "enable":
                         this.embyUserService.enableUserByBot(targetUserId, owner);
                         break;
-                     case "disable":
-                        this.embyUserService.disableUserByBot(targetUserId, owner);
-                        break;
+                      case "disable":
+                         this.embyUserService.disableUserByBot(targetUserId, owner);
+                         break;
+                      case "delete_confirm":
+                         this.embyUserService.deleteUserByBot(targetUserId, owner);
+                         break;
                      case "whitelist":
                         this.embyUserService.updateUserWhitelistByBot(targetUserId, true, null, owner);
                         break;
@@ -4045,12 +4646,30 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                   }
 
                   log.info("Telegram 管理面板操作完成: operatorId={}, targetUserId={}, action={}", operatorId, targetUserId, action);
+                  if ("delete_confirm".equals(action)) {
+                     this.editStartPanelMessage(
+                        message,
+                        this.foamPanelTitle("账号已删除")
+                           + "🗑 账号 `" + this.escapeMarkdown(target.getEmbyUserName()) + "` 已删除，本地绑定和远程 Emby 账号均已清理。",
+                        this.keyboard(List.of(this.button("🛡 返回管理中心", "start_panel:admin")), 1)
+                     );
+                     if (!privatePanel) {
+                        this.scheduleGroupMessageCleanup(message.getChatId(), message.getMessageId());
+                     }
+                     return;
+                  }
+
                   EmbyUser refreshed = this.embyUserService.getById(Long.valueOf(targetUserId));
                   if ("whitelist".equals(action) && !privatePanel) {
                      this.sendPersistentMessage(
                         message.getChatId(),
                         this.buildWhitelistCelebrationMessage(message.getChatId(), refreshed == null ? target : refreshed, callbackQuery.getFrom())
                      );
+                  }
+
+                  if ("whitelist".equals(action)) {
+                     this.deleteMessageSilently(message.getChatId(), message.getMessageId());
+                     return;
                   }
 
                   this.renderAdminUserPanel(
@@ -4131,8 +4750,8 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                throw new BizException("当前 Emby 账号没有有效的 Telegram 绑定");
             } else if (targetTelegramUserId == operatorId) {
                throw new BizException("不能对自己执行这项群管理操作");
-            } else if (this.isKkProtectedTelegramTarget(targetTelegramUserId)) {
-               throw new BizException("\ud83c\udf01 这位伙伴暂时不开放这项操作哦～");
+            } else if (!this.canBotOperatorOperateTelegramTarget(operatorId, targetTelegramUserId)) {
+               throw new BizException("同级账号仅可查看，不能执行这项群管理操作");
             } else {
                return targetTelegramUserId;
             }
@@ -4150,8 +4769,8 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             throw new BizException("目标 Telegram 身份无效");
          } else if (targetTelegramUserId == operatorId) {
             throw new BizException("不能对自己执行这项群成员操作");
-         } else if (this.isKkProtectedTelegramTarget(targetTelegramUserId)) {
-            throw new BizException("\ud83c\udf01 这位伙伴暂时不开放这项操作哦～");
+          } else if (!this.canBotOperatorOperateTelegramTarget(operatorId, targetTelegramUserId)) {
+             throw new BizException("同级账号仅可查看，不能执行这项群成员操作");
          } else {
             return targetTelegramUserId;
          }
@@ -4233,13 +4852,123 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       }
    }
 
+   private String buildKkRegistrationGrantMessage(
+      DataQueryBot.TelegramKkTarget target,
+      org.telegram.telegrambots.meta.api.objects.User operator,
+      long operatorId,
+      String botName,
+      boolean directMessageSent
+   ) {
+      String recipientMention = this.telegramUserMention(target.getTelegramUserId(), target.getDisplayName());
+      String operatorMention = this.telegramUserMention(operator);
+      String template = this.resolveWhitelistGiftTemplate(operatorId);
+      String rendered = this.renderWhitelistTemplateText(
+         template,
+         recipientMention,
+         operatorMention,
+         target.getDisplayName(),
+         this.telegramDisplayName(operator)
+      );
+      String botMention = StringUtils.hasText(botName) && botName.startsWith("@") ? botName : "@" + botName;
+      String instruction = directMessageSent
+         ? "👉 请目标成员点击下方按钮领取开户资格。"
+         : "💬 机器人暂时无法主动私聊目标成员，请让 TA 私聊 " + this.escapeMarkdown(botMention) + "，发送 `/start` 后领取。";
+      if (this.hasWhitelistGiftTemplatePlaceholder(template)) {
+         return rendered + (directMessageSent ? "" : "\n\n" + instruction);
+      }
+
+      return "🎁 "
+         + operatorMention
+         + " 已为 "
+         + recipientMention
+         + " 准备好 Mist 开户资格。\n\n"
+         + rendered
+         + "\n\n"
+         + instruction;
+   }
+
+   private String resolveWhitelistGiftTemplate(long operatorId) {
+      TelegramResponse telegram = this.telegramClientUtils.getTelegramResponse();
+      String mode = this.normalizeWhitelistTemplateMode(telegram == null ? null : telegram.getWhitelistGiftTemplateMode());
+      Map<String, String> adminTemplates = this.whitelistGiftAdminTemplates(telegram);
+      if (operatorId > 0L && StringUtils.hasText(adminTemplates.get(String.valueOf(operatorId)))) {
+         return adminTemplates.get(String.valueOf(operatorId));
+      }
+
+      List<String> templates = this.whitelistGiftTemplates(telegram);
+      if (!templates.isEmpty()) {
+         return "fixed".equals(mode)
+            ? templates.get(0)
+            : templates.get(ThreadLocalRandom.current().nextInt(templates.size()));
+      }
+
+      return "fixed".equals(mode)
+         ? WHITELIST_CELEBRATION_COPY.get(0)
+         : WHITELIST_CELEBRATION_COPY.get(ThreadLocalRandom.current().nextInt(WHITELIST_CELEBRATION_COPY.size()));
+   }
+
    private String buildWhitelistCelebrationMessage(long chatId, EmbyUser target, org.telegram.telegrambots.meta.api.objects.User operator) {
-      return this.buildWhitelistCelebrationMessage(this.telegramBoundUserMention(chatId, target), this.telegramUserMention(operator));
+      String recipientMention = this.telegramBoundUserMention(chatId, target);
+      String operatorMention = this.telegramUserMention(operator);
+      String recipientName = target != null && StringUtils.hasText(target.getEmbyUserName()) ? target.getEmbyUserName() : "幸运用户";
+      String operatorName = this.telegramDisplayName(operator);
+      long operatorId = operator == null || operator.getId() == null ? 0L : operator.getId();
+      return this.buildWhitelistCelebrationMessage(recipientMention, operatorMention, recipientName, operatorName, operatorId);
    }
 
    private String buildWhitelistCelebrationMessage(String recipientMention, String operatorMention) {
-      String opening = WHITELIST_CELEBRATION_COPY.get(ThreadLocalRandom.current().nextInt(WHITELIST_CELEBRATION_COPY.size()));
-      return opening + "\n\n\ud83c\udf89 恭喜 " + recipientMention + "，获得 " + operatorMention + " 送出的白名单。\n\n\ud83c\udf01 愿薄雾托住所有期待，往后的观影时光都有星光与好故事相伴。";
+      return this.buildWhitelistCelebrationMessage(recipientMention, operatorMention, "幸运用户", "管理员", 0L);
+   }
+
+   private String buildWhitelistCelebrationMessage(
+      String recipientMention, String operatorMention, String recipientName, String operatorName, long operatorId
+   ) {
+      String template = this.resolveWhitelistGiftTemplate(operatorId);
+      return this.renderWhitelistGiftTemplate(template, recipientMention, operatorMention, recipientName, operatorName);
+   }
+
+   private String renderWhitelistGiftTemplate(
+      String template, String recipientMention, String operatorMention, String recipientName, String operatorName
+   ) {
+      String normalizedTemplate = StringUtils.hasText(template) ? template.trim() : WHITELIST_CELEBRATION_COPY.get(0);
+      String rendered = this.renderWhitelistTemplateText(template, recipientMention, operatorMention, recipientName, operatorName);
+      if (this.hasWhitelistGiftTemplatePlaceholder(normalizedTemplate)) {
+         return rendered;
+      }
+
+      return "🎁 "
+         + operatorMention
+         + " 已为 "
+         + recipientMention
+         + " 开通 Mist 白名单。\n\n"
+         + rendered;
+   }
+
+   private boolean hasWhitelistGiftTemplatePlaceholder(String template) {
+      return StringUtils.hasText(template)
+         && (template.contains("{{recipient}}")
+            || template.contains("{recipient}")
+            || template.contains("{{operator}}")
+            || template.contains("{operator}")
+            || template.contains("{{recipientName}}")
+            || template.contains("{recipientName}")
+            || template.contains("{{operatorName}}")
+            || template.contains("{operatorName}"));
+   }
+
+   private String renderWhitelistTemplateText(
+      String template, String recipientMention, String operatorMention, String recipientName, String operatorName
+   ) {
+      String normalizedTemplate = StringUtils.hasText(template) ? template.trim() : WHITELIST_CELEBRATION_COPY.get(0);
+      return normalizedTemplate
+         .replace("{{recipient}}", recipientMention)
+         .replace("{recipient}", recipientMention)
+         .replace("{{operator}}", operatorMention)
+         .replace("{operator}", operatorMention)
+         .replace("{{recipientName}}", this.escapeMarkdown(recipientName))
+         .replace("{recipientName}", this.escapeMarkdown(recipientName))
+         .replace("{{operatorName}}", this.escapeMarkdown(operatorName))
+         .replace("{operatorName}", this.escapeMarkdown(operatorName));
    }
 
    private String telegramBoundUserMention(long chatId, EmbyUser target) {
@@ -4280,14 +5009,11 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       long targetUserId = pending.getTargetUserId();
       TelegramBotPermission permission = this.permissionForCommand(pending.getCommand());
       EmbyUser target = this.embyUserService.getById(Long.valueOf(targetUserId));
-      if (target != null && this.isKkProtectedEmbyTarget(target)) {
-         this.pendingPanelCommands.remove(operatorId, pending);
-         this.editStartPanelMessage(pending.getPanelMessage(), "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
-         return true;
-      } else if (permission != null
+      if (permission != null
          && this.telegramBotAuthorizationService.hasPermission(operatorId, permission)
          && target != null
-         && this.canBotOperatorViewTarget(operatorId, target)) {
+         && this.canBotOperatorViewTarget(operatorId, target)
+         && this.canBotOperatorOperateTarget(operatorId, target)) {
          if (!this.tryAcquireRateLimit("admin_mutation:" + operatorId, 30L, 60L)) {
             this.keepPendingAdminUserInput(operatorId, pending, target, "⏳ 操作过于频繁，请稍后再试。");
             return true;
@@ -5396,22 +6122,24 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       long chatId = message.getChatId();
       long telegramUserId = message.getFrom().getId();
       if (message.isUserMessage() && chatId == telegramUserId) {
-         DataQueryBot.KkRegistrationGrant grant = this.loadKkRegistrationGrant(token);
-         if (grant == null || grant.getTargetTelegramUserId() != telegramUserId) {
-            this.sendMessage(chatId, "\ud83c\udf19 这份账号礼物已失效，或并不是为当前 Telegram 身份准备的。");
-         } else if (!this.canGrantKkRegistration(grant.getOperatorId())) {
-            this.deleteKkRegistrationGrant(token, telegramUserId);
-            this.sendMessage(chatId, "\ud83c\udf19 这份账号礼物暂时无法领取，请让发起人重新打开 `/kk` 面板。");
-         } else if (this.isKkProtectedTelegramTarget(telegramUserId)) {
-            this.deleteKkRegistrationGrant(token, telegramUserId);
-            this.sendMessage(chatId, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
-         } else if (this.telegramBindingManager.findBoundUser(telegramUserId, false) != null) {
-            this.deleteKkRegistrationGrant(token, telegramUserId);
-            this.sendMessage(chatId, "\ud83c\udf01 你已经关联了 Mist 账号，不需要重复创建啦。");
-         } else if (this.telegramBindingReviewService.hasPendingReviewForTelegram(telegramUserId)) {
-            this.deleteKkRegistrationGrant(token, telegramUserId);
-            this.sendMessage(chatId, "\ud83d\udd52 当前还有一份绑定申请正在等待处理，请完成后再领取账号礼物。");
-         } else {
+          DataQueryBot.KkRegistrationGrant grant = this.loadKkRegistrationGrant(token);
+          if (grant == null || grant.getTargetTelegramUserId() != telegramUserId) {
+             this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "这份账号礼物已失效，或并不是为当前 Telegram 身份准备的。");
+          } else {
+             this.deleteKkRegistrationPanel(token);
+             if (!this.canGrantKkRegistration(grant.getOperatorId())) {
+             this.deleteKkRegistrationGrant(token, telegramUserId);
+             this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "这份账号礼物暂时无法领取，请让发起人重新打开 `/kk` 面板。");
+             } else if (!this.canBotOperatorOperateTelegramTarget(grant.getOperatorId(), telegramUserId)) {
+             this.deleteKkRegistrationGrant(token, telegramUserId);
+             this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "同级账号不能互相开通资格，请让更高一级管理员发起操作。");
+             } else if (this.telegramBindingManager.findBoundUser(telegramUserId, false) != null) {
+             this.deleteKkRegistrationGrant(token, telegramUserId);
+             this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "你已经关联了 Mist 账号，不需要重复创建啦。");
+             } else if (this.telegramBindingReviewService.hasPendingReviewForTelegram(telegramUserId)) {
+             this.deleteKkRegistrationGrant(token, telegramUserId);
+             this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "当前还有一份绑定申请正在等待处理，请完成后再领取账号礼物。");
+             } else {
             this.pendingKkRegistrations
                .put(
                   telegramUserId,
@@ -5421,11 +6149,12 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                .keyboard(List.of(new InlineKeyboardRow(InlineKeyboardButton.builder().text("❌ 取消领取").callbackData("kkreg_cancel:" + token).build())))
                .build();
             this.sendKeyboardMessage(
-               chatId, "\ud83c\udf81 *一份 Mist 账号礼物正在等待你*\n\n请在 10 分钟内发送想使用的 Emby 用户名。\n\ud83d\udd10 登录密码会由系统安全生成，并且只在这个私聊中发送给你。", cancelKeyboard
+               chatId, MistTelegramStyle.markdownPanel("账号礼物正在等待你") + "请在 10 分钟内发送想使用的 Emby 用户名。\n\n🔐 登录密码会由系统安全生成，并且只在这个私聊中发送给你。", cancelKeyboard
             );
-         }
+             }
+          }
       } else {
-         this.sendMessage(chatId, "\ud83d\udd12 请在与机器人的私聊中打开这份账号礼物。");
+         this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "请在与机器人的私聊中打开这份账号礼物。");
       }
    }
 
@@ -5437,8 +6166,8 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             if (pending != null && Objects.equals(token, pending.getToken())) {
                this.pendingKkRegistrations.remove(telegramUserId, pending);
                this.deleteKkRegistrationGrant(pending.getToken(), telegramUserId);
-               this.answerCallbackQuery(callbackQuery.getId(), "\ud83c\udf01 已取消领取。");
-               this.editStartPanelMessage(message, "\ud83c\udf01 已取消领取，这份账号礼物没有被使用。", null);
+               this.answerCallbackQuery(callbackQuery.getId(), "🌁 已取消领取。");
+               this.editStartPanelMessage(message, MistTelegramStyle.markdownPanel("账号礼物") + "已取消领取，这份账号礼物没有被使用。", null);
                return;
             }
 
@@ -5446,11 +6175,11 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             return;
          }
 
-         this.answerCallbackQuery(callbackQuery.getId(), "\ud83d\udd12 请在目标用户的机器人私聊中操作。");
+         this.answerCallbackQuery(callbackQuery.getId(), "🌁 请在目标用户的机器人私聊中操作。");
          return;
       }
 
-      this.answerCallbackQuery(callbackQuery.getId(), "\ud83c\udf19 这份账号礼物暂时无法取消，请稍后再试。");
+      this.answerCallbackQuery(callbackQuery.getId(), "🌁 这份账号礼物暂时无法取消，请稍后再试。");
    }
 
    private boolean handlePendingKkRegistrationInput(Message message) {
@@ -5469,12 +6198,12 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             String input = message.getText().trim();
             if (pending.isExpired()) {
                this.pendingKkRegistrations.remove(telegramUserId, pending);
-               this.sendMessage(chatId, "⏰ 领取时间已结束，请让发起人重新打开 `/kk` 面板。");
+               this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "领取时间已结束，请让发起人重新打开 `/kk` 面板。");
                return true;
             } else if ("/cancel".equalsIgnoreCase(input)) {
                this.pendingKkRegistrations.remove(telegramUserId, pending);
                this.deleteKkRegistrationGrant(pending.getToken(), telegramUserId);
-               this.sendMessage(chatId, "\ud83c\udf01 已取消领取，这份账号礼物没有被使用。");
+               this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "已取消领取，这份账号礼物没有被使用。");
                return true;
             } else if (input.startsWith("/")) {
                this.pendingKkRegistrations.remove(telegramUserId, pending);
@@ -5487,29 +6216,29 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                   || !this.canGrantKkRegistration(grant.getOperatorId())) {
                   this.pendingKkRegistrations.remove(telegramUserId, pending);
                   this.deleteKkRegistrationGrant(pending.getToken(), telegramUserId);
-                  this.sendMessage(chatId, "\ud83c\udf19 这份账号礼物已失效，请让发起人重新打开 `/kk` 面板。");
+                  this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "这份账号礼物已失效，请让发起人重新打开 `/kk` 面板。");
                   return true;
-               } else if (this.isKkProtectedTelegramTarget(telegramUserId)) {
-                  this.pendingKkRegistrations.remove(telegramUserId, pending);
-                  this.deleteKkRegistrationGrant(pending.getToken(), telegramUserId);
-                  this.sendMessage(chatId, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
+                } else if (!this.canBotOperatorOperateTelegramTarget(pending.getOperatorId(), telegramUserId)) {
+                   this.pendingKkRegistrations.remove(telegramUserId, pending);
+                   this.deleteKkRegistrationGrant(pending.getToken(), telegramUserId);
+                   this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "同级账号不能互相开通资格，请让更高一级管理员发起操作。");
                   return true;
                } else if (this.telegramBindingManager.findBoundUser(telegramUserId, false) != null) {
                   this.pendingKkRegistrations.remove(telegramUserId, pending);
                   this.deleteKkRegistrationGrant(pending.getToken(), telegramUserId);
-                  this.sendMessage(chatId, "\ud83c\udf01 你已经关联了 Mist 账号，不需要重复创建啦。");
+                  this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "你已经关联了 Mist 账号，不需要重复创建啦。");
                   return true;
                } else if (this.telegramBindingReviewService.hasPendingReviewForTelegram(telegramUserId)) {
-                  this.sendMessage(chatId, "\ud83d\udd52 当前还有一份绑定申请正在等待处理，请完成后再继续。");
+                  this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "当前还有一份绑定申请正在等待处理，请完成后再继续。");
                   return true;
                } else if (!this.tryAcquireRateLimit("register:" + telegramUserId, 5L, REGISTER_RATE_LIMIT_WINDOW_SECONDS)) {
-                  this.sendMessage(chatId, "⏳ 尝试太频繁了，请 10 分钟后再试。");
+                  this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "尝试太频繁了，请 10 分钟后再试。");
                   return true;
                } else {
                   String lockKey = "bot:register:lock:" + telegramUserId;
                   String lockToken = this.redisLockUtils.tryLock(lockKey, TELEGRAM_REGISTER_LOCK_SECONDS);
                   if (!StringUtils.hasText(lockToken)) {
-                     this.sendMessage(chatId, "⏳ 当前账号礼物正在处理中，请稍后再试。");
+                     this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "当前账号礼物正在处理中，请稍后再试。");
                      return true;
                   } else {
                      boolean submitted = false;
@@ -5537,16 +6266,16 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                            this.stringRedisTemplate.opsForList().leftPush("bot:register:queue", taskId);
                            this.pendingKkRegistrations.remove(telegramUserId, pending);
                            this.deleteKkRegistrationGrant(pending.getToken(), telegramUserId);
-                           this.sendMessage(chatId, "⏳ 账号礼物已进入创建队列，完成后会在这个私聊发送账号和密码。");
+                           this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "账号礼物已进入创建队列，完成后会在这个私聊发送账号和密码。");
                            submitted = true;
                            return true;
                         }
 
-                        this.sendMessage(chatId, "⏳ 当前注册队列繁忙，请稍后再试。");
+                        this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "当前注册队列繁忙，请稍后再试。");
                         e = true;
                      } catch (Exception var19) {
                         log.warn("Telegram /kk 赠送开户任务入队失败: telegramUserId={}", telegramUserId, var19);
-                        this.sendMessage(chatId, "❌ 创建任务入队失败，请稍后再试。");
+                        this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "创建任务入队失败，请稍后再试。");
                         return true;
                      } finally {
                         if (!submitted) {
@@ -5558,7 +6287,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                   }
                }
             } else {
-               this.sendMessage(chatId, "\ud83d\udcdd 用户名不能为空或包含空格，请重新发送一个用户名。");
+               this.sendMessage(chatId, MistTelegramStyle.markdownPanel("账号礼物") + "用户名不能为空或包含空格，请重新发送一个用户名。");
                return true;
             }
          }
@@ -5595,6 +6324,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    private void deleteKkRegistrationGrant(String token, long targetTelegramUserId) {
       if (StringUtils.hasText(token)) {
          this.stringRedisTemplate.delete("bot:kk:register:" + token);
+         this.deleteKkRegistrationPanel(token);
       }
 
       if (targetTelegramUserId > 0L) {
@@ -5621,23 +6351,23 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       long chatId = message.getChatId();
       long telegramUserId = message.getFrom().getId();
       if (!message.isUserMessage()) {
-         this.sendMessage(chatId, "\ud83d\udd12 注册只支持私聊机器人，请私聊发送 `/register 用户名 密码`。");
+         this.sendMessage(chatId, MistTelegramStyle.markdownPanel("Telegram 注册") + "注册只支持私聊机器人，请私聊发送 `/register 用户名 密码`。");
       } else if (!this.isTelegramBotRegistrationEnabled()) {
-         this.sendMessage(chatId, "\ud83d\udeab Telegram 注册暂未开启，请联系管理员。");
+         this.sendMessage(chatId, MistTelegramStyle.markdownPanel("Telegram 注册") + "当前暂未开放，请联系管理员。");
       } else if (!this.tryAcquireRateLimit("register:" + telegramUserId, 5L, REGISTER_RATE_LIMIT_WINDOW_SECONDS)) {
-         this.sendMessage(chatId, "⏳ 注册尝试太频繁了，请 10 分钟后再试。");
+         this.sendMessage(chatId, MistTelegramStyle.markdownPanel("Telegram 注册") + "注册尝试太频繁了，请 10 分钟后再试。");
       } else {
          String[] args = argument.trim().split("\\s+", 2);
          if (args.length >= 2 && StringUtils.hasText(args[0]) && StringUtils.hasText(args[1])) {
             if (this.telegramAuthService.findBoundUser(telegramUserId) != null) {
-               this.sendMessage(chatId, "ℹ️ 当前 Telegram 已绑定 Emby 账号，无需重复注册。\n\ud83d\udc64 发送 `/myaccount` 可查看绑定信息。");
+               this.sendMessage(chatId, MistTelegramStyle.markdownPanel("Telegram 注册") + "当前 Telegram 已绑定 Emby 账号，无需重复注册。\n\n👤 发送 `/myaccount` 可查看绑定信息。");
             } else if (this.telegramBindingReviewService.hasPendingReviewForTelegram(telegramUserId)) {
-               this.sendMessage(chatId, "\ud83d\udd52 当前已有待审批的 Telegram 绑定申请，请等待管理员处理后再注册。");
+               this.sendMessage(chatId, MistTelegramStyle.markdownPanel("Telegram 注册") + "当前已有待审批的绑定申请，请等待管理员处理后再注册。");
             } else {
                String lockKey = "bot:register:lock:" + telegramUserId;
                String lockToken = this.redisLockUtils.tryLock(lockKey, TELEGRAM_REGISTER_LOCK_SECONDS);
                if (!StringUtils.hasText(lockToken)) {
-                  this.sendMessage(chatId, "⏳ 当前 Telegram 注册正在处理中，请稍后再试。");
+                  this.sendMessage(chatId, MistTelegramStyle.markdownPanel("Telegram 注册") + "当前注册正在处理中，请稍后再试。");
                } else {
                   boolean submitted = false;
 
@@ -5660,15 +6390,15 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                         );
                         this.saveTelegramRegisterTask(task);
                         this.stringRedisTemplate.opsForList().leftPush("bot:register:queue", taskId);
-                        this.sendMessage(chatId, "⏳ 已进入 Telegram 注册队列，完成后会私聊通知你。");
+                        this.sendMessage(chatId, MistTelegramStyle.markdownPanel("Telegram 注册") + "已进入注册队列，完成后会私聊通知你。");
                         submitted = true;
                         return;
                      }
 
-                     this.sendMessage(chatId, "⏳ 当前注册队列繁忙，请稍后再试。");
+                     this.sendMessage(chatId, MistTelegramStyle.markdownPanel("Telegram 注册") + "当前注册队列繁忙，请稍后再试。");
                   } catch (Exception var18) {
                      log.warn("Telegram 注册任务入队失败: telegramUserId={}", telegramUserId, var18);
-                     this.sendMessage(chatId, "❌ 注册任务入队失败，请稍后再试。");
+                     this.sendMessage(chatId, MistTelegramStyle.markdownPanel("Telegram 注册") + "❌ 注册任务入队失败，请稍后再试。");
                      return;
                   } finally {
                      if (!submitted) {
@@ -5678,7 +6408,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                }
             }
          } else {
-            this.sendMessage(chatId, "\ud83d\udcdd 用法：`/register 用户名 密码`\n\ud83d\udd10 密码长度需为 6-30 位。");
+            this.sendMessage(chatId, MistTelegramStyle.markdownPanel("Telegram 注册") + "用法：`/register 用户名 密码`\n\n🔐 密码长度需为 6-30 位。");
          }
       }
    }
@@ -5955,8 +6685,9 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             return;
          }
 
-         if (giftedByKk && (!this.canGrantKkRegistration(task.getGrantedByTelegramUserId()) || this.isKkProtectedTelegramTarget(task.getTelegramUserId()))) {
-            this.sendMessage(task.getChatId(), "\ud83c\udf19 这份账号礼物的授权状态已经变化，本次没有创建账号。");
+          if (giftedByKk && (!this.canGrantKkRegistration(task.getGrantedByTelegramUserId())
+             || !this.canBotOperatorOperateTelegramTarget(task.getGrantedByTelegramUserId(), task.getTelegramUserId()))) {
+            this.sendMessage(task.getChatId(), MistTelegramStyle.markdownPanel("账号礼物") + "这份账号礼物的授权状态已经变化，本次没有创建账号。");
             return;
          }
 
@@ -5964,18 +6695,18 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             ? this.telegramBindingManager.findBoundUser(task.getTelegramUserId(), false) != null
             : this.telegramAuthService.findBoundUser(task.getTelegramUserId()) != null;
          if (alreadyBound) {
-            this.sendMessage(task.getChatId(), "ℹ️ 当前 Telegram 已绑定 Emby 账号，无需重复注册。\n\ud83d\udc64 发送 `/myaccount` 可查看绑定信息。");
+            this.sendMessage(task.getChatId(), MistTelegramStyle.markdownPanel("Telegram 注册") + "当前 Telegram 已绑定 Emby 账号，无需重复注册。\n\n👤 发送 `/myaccount` 可查看绑定信息。");
             return;
          }
 
          if (!giftedByKk) {
             if (!this.isTelegramBotRegistrationEnabled()) {
-               this.sendMessage(task.getChatId(), "\ud83d\udeab Telegram 注册暂未开启，请联系管理员。");
+               this.sendMessage(task.getChatId(), MistTelegramStyle.markdownPanel("Telegram 注册") + "当前暂未开放，请联系管理员。");
                return;
             }
 
             if (!this.tryReserveTelegramRegisterQuota()) {
-               this.sendMessage(task.getChatId(), "\ud83c\udf9f️ 本轮 Telegram 注册名额已用完，或管理员尚未配置可用名额。");
+               this.sendMessage(task.getChatId(), MistTelegramStyle.markdownPanel("Telegram 注册") + "本轮注册名额已用完，或管理员尚未配置可用名额。");
                return;
             }
 
@@ -6003,22 +6734,22 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                if (bindResult.isPending()) {
                   this.sendMessage(
                      task.getChatId(),
-                     "✅ Telegram 注册成功，绑定申请已提交审批。\n\ud83d\udc64 用户名："
+                     MistTelegramStyle.markdownPanel("Telegram 注册成功") + "绑定申请已提交审批。\n\n👤 用户名："
                         + this.escapeMarkdown(registeredUser.getEmbyUserName())
-                        + "\n\ud83d\udd10 密码："
+                        + "\n🔐 密码："
                         + this.escapeMarkdown(task.getRawPassword())
-                        + "\n\ud83c\udd94 审批指纹：`"
+                        + "\n🆔 审批指纹：`"
                         + this.escapeMarkdown(this.publicReviewId(bindResult))
                         + "`\n\n管理员审批通过后会通知你；如需取消，请发送 `/cancelreview`。"
                   );
                } else {
                   this.sendMessage(
                      task.getChatId(),
-                     "✅ Telegram 注册成功，已自动绑定。\n\ud83d\udc64 用户名："
+                     MistTelegramStyle.markdownPanel("Telegram 注册成功") + "已自动完成绑定。\n\n👤 用户名："
                         + this.escapeMarkdown(registeredUser.getEmbyUserName())
-                        + "\n\ud83d\udd10 密码："
+                        + "\n🔐 密码："
                         + this.escapeMarkdown(task.getRawPassword())
-                        + "\n\n\ud83c\udfac 现在可以发送 `/request 片名` 搜索 TMDB 并提交求片。\n\ud83d\udca1 也可以使用 `@机器人 影片名` 内联搜索，体验更好；"
+                        + "\n\n🎬 现在可以发送 `/request 片名` 搜索 TMDB 并提交求片。\n💡 也可以使用 `@机器人 影片名` 内联搜索，体验更好；"
                   );
                }
 
@@ -6033,7 +6764,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             this.telegramBindingManager.bind(createdUser, task.getTelegramUserId(), task.getTelegramUsername(), null, false);
             this.sendMessage(
                task.getChatId(),
-               "\ud83c\udf89 *Mist 账号创建成功*\n\n\ud83d\udc64 用户名：`"
+               MistTelegramStyle.markdownPanel("账号创建成功") + "👤 用户名：`"
                   + this.escapeMarkdown(registeredUser.getEmbyUserName())
                   + "`\n\ud83d\udd10 登录密码：`"
                   + this.escapeMarkdown(task.getRawPassword())
@@ -6043,9 +6774,9 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             log.error("Telegram 注册后自动绑定失败: telegramUserId={}, userId={}", task.getTelegramUserId(), registeredUser.getId(), var14);
             this.sendMessage(
                task.getChatId(),
-               "✅ 账号已创建，但自动绑定失败，请使用 `/bind 用户名 密码` 手动绑定。\n\ud83d\udc64 用户名："
+               MistTelegramStyle.markdownPanel("账号已创建") + "自动绑定失败，请使用 `/bind 用户名 密码` 手动绑定。\n\n👤 用户名："
                   + this.escapeMarkdown(registeredUser.getEmbyUserName())
-                  + "\n\ud83d\udd10 密码："
+                  + "\n🔐 密码："
                   + this.escapeMarkdown(task.getRawPassword())
             );
             return;
@@ -6055,7 +6786,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             this.releaseTelegramRegisterQuota();
          }
 
-         this.sendMessage(task.getChatId(), "❌ " + var15.getMessage());
+         this.sendMessage(task.getChatId(), MistTelegramStyle.markdownPanel("Telegram 注册") + "❌ " + var15.getMessage());
          return;
       } catch (ApiException var16) {
          if (quotaReserved) {
@@ -6063,7 +6794,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          }
 
          log.error("Telegram 注册创建 Emby 用户失败: telegramUserId={}", task.getTelegramUserId(), var16);
-         this.sendMessage(task.getChatId(), "❌ Emby 服务器创建用户失败，请稍后再试或联系管理员。");
+         this.sendMessage(task.getChatId(), MistTelegramStyle.markdownPanel("Telegram 注册") + "❌ Emby 服务器创建用户失败，请稍后再试或联系管理员。");
          return;
       } catch (Exception var17) {
          if (quotaReserved) {
@@ -6071,7 +6802,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          }
 
          log.error("Telegram 注册失败: telegramUserId={}", task.getTelegramUserId(), var17);
-         this.sendMessage(task.getChatId(), "❌ 注册失败，请稍后再试。");
+         this.sendMessage(task.getChatId(), MistTelegramStyle.markdownPanel("Telegram 注册") + "❌ 注册失败，请稍后再试。");
          return;
       } finally {
          this.redisLockUtils.unlock(task.getLockKey(), task.getLockToken());
@@ -7133,13 +7864,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          EmbyUser user = this.embyUserService.getById(Long.valueOf(selectedUserId));
          long operatorId = callbackQuery.getFrom().getId();
          long chatId = callbackQuery.getMessage().getChatId();
-         if (user != null && this.isKkProtectedEmbyTarget(user)) {
-            if (callbackQuery.getMessage() instanceof Message panelMessage) {
-               this.editStartPanelMessage(panelMessage, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
-            } else {
-               this.sendMessage(chatId, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
-            }
-         } else if (user != null && this.canBotOperatorViewTarget(operatorId, user)) {
+          if (user != null && this.canBotOperatorViewTarget(operatorId, user)) {
             this.pendingUserEdits.put(operatorId, new DataQueryBot.PendingUserEdit(operatorId, selectedUserId));
             if (callbackQuery.getMessage() instanceof Message panelMessage && panelMessage.isUserMessage()) {
                this.renderAdminUserPanel(operatorId, user, panelMessage, null);
@@ -7390,7 +8115,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    }
 
    private void scheduleGroupMessageCleanup(long chatId, Integer messageId) {
-      this.scheduleGroupMessageCleanup(chatId, messageId, 5L, TimeUnit.SECONDS);
+      this.scheduleGroupMessageCleanup(chatId, messageId, GROUP_COMMAND_CLEANUP_SECONDS, TimeUnit.SECONDS);
    }
 
    private void scheduleGroupMessageCleanup(long chatId, Integer messageId, long delay, TimeUnit timeUnit) {

@@ -42,7 +42,7 @@ public class PointsBotJob {
             try {
                List<PointsBotLotteryEntry> winners = this.lotteryService.drawLottery(lottery, this.random);
                if (winners.isEmpty()) {
-                  this.pointsBot.sendPublicMessage(lottery.getChatId(), String.format("抽奖已结束：%s\n结果：无人参与。", lottery.getTitle()));
+                  this.pointsBot.sendPublicMessage(lottery.getChatId(), String.format("🌁 Mist · 抽奖结束\n\n抽奖：%s\n结果：无人参与。", lottery.getTitle()));
                } else {
                   if (lottery.getPrizeConfigId() != null) {
                      PointsBotPrizeConfig prize = this.prizeConfigService.getById(lottery.getPrizeConfigId());
@@ -63,11 +63,11 @@ public class PointsBotJob {
 
                      String name = winner.getUsername() != null && !winner.getUsername().isBlank() ? "@" + winner.getUsername() : winner.getDisplayName();
                      winnerNames.append(name);
-                     this.pointsBot.sendPublicMessage(winner.getUserId(), String.format("\ud83c\udf89 恭喜中奖！\n抽奖：%s\n请联系管理员领取奖励。", lottery.getTitle()));
+                     this.pointsBot.sendPublicMessage(winner.getUserId(), String.format("🌁 Mist · 恭喜中奖\n\n抽奖：%s\n请联系管理员领取奖励。", lottery.getTitle()));
                   }
 
                   this.pointsBot
-                     .sendPublicMessage(lottery.getChatId(), String.format("\ud83c\udf89 抽奖结果：%s\n中奖者：%s", lottery.getTitle(), winnerNames.toString()));
+                     .sendPublicMessage(lottery.getChatId(), String.format("🌁 Mist · 抽奖结果\n\n抽奖：%s\n中奖者：%s", lottery.getTitle(), winnerNames.toString()));
                }
             } catch (Exception var9) {
                log.error("自动开奖失败: lotteryId={}", lottery.getId(), var9);
@@ -103,7 +103,7 @@ public class PointsBotJob {
             PointsBotFoamBag penalized = this.foamBagService.penalizeDue(recordId);
             if (penalized != null && this.pointsBot.isEnabled()) {
                this.pointsBot
-                  .sendPublicMessage(penalized.getUserId(), "⚠️ 雾袋已逾期\n\n积分已归零，未来 " + penalized.getPenaltyDays() + " 天内无法签到、使用雾袋或接收他人转赠积分。\n限制结束后会自动恢复。");
+                     .sendPublicMessage(penalized.getUserId(), "🌁 Mist · 雾袋逾期提醒\n\n积分已归零，未来 " + penalized.getPenaltyDays() + " 天内无法签到、使用雾袋或接收他人转赠积分。\n限制结束后会自动恢复。");
             }
          } catch (Exception var4) {
             log.error("雾袋逾期处理失败: recordId={}", recordId, var4);

@@ -20,6 +20,7 @@ import com.diboot.core.binding.RelationsBinder;
 import com.diboot.core.util.BeanUtils;
 import com.una.embyhub.config.common.MpConvert;
 import com.una.embyhub.config.common.enums.HostLineTypeEnum;
+import com.una.embyhub.config.common.enums.AdminMenuKey;
 import com.una.embyhub.config.common.enums.RegisterChannelEnum;
 import com.una.embyhub.config.common.enums.RenewChannelEnum;
 import com.una.embyhub.config.common.enums.ResponseStatusEnum;
@@ -1540,6 +1541,38 @@ public class EmbyUserServiceImpl extends ServiceImpl<EmbyUserMapper, EmbyUser> i
    }
 
    @Override
+   public void updateUserAdminByBot(Long userId, Integer isAdmin, boolean owner) {
+      if (userId == null) {
+         throw new BizException(ResponseStatusEnum.USER_ID_NOT_NULl);
+      }
+
+      EmbyUser targetUser = this.getById(userId);
+      if (targetUser == null) {
+         throw new BizException(ResponseStatusEnum.USER_NOT_EXIST);
+      }
+
+      this.assertBotTargetCanBeManaged(targetUser, owner);
+      Integer nextIsAdmin = Integer.valueOf(1).equals(isAdmin) ? 1 : 0;
+      if (Objects.equals(targetUser.getIsAdmin(), nextIsAdmin)) {
+         if (Integer.valueOf(1).equals(nextIsAdmin)) {
+            this.adminMenuPermissionService.ensureMenuPermissionByBot(userId, AdminMenuKey.USERS.getKey());
+         }
+         return;
+      }
+
+      EmbyUser patch = new EmbyUser();
+      patch.setId(userId);
+      patch.setIsAdmin(nextIsAdmin);
+      this.updateById(patch);
+      if (Integer.valueOf(0).equals(nextIsAdmin)) {
+         this.adminMenuPermissionService.removeAssignments(userId);
+      } else {
+         this.adminMenuPermissionService.ensureMenuPermissionByBot(userId, AdminMenuKey.USERS.getKey());
+         this.publishSimultaneousPlaybackUserConfigCleanup(targetUser);
+      }
+   }
+
+   @Override
    public void updateUserDataByBot(EmbyUserUpdateData embyUserUpdateData, boolean owner) {
       if (embyUserUpdateData.getId() == null) {
          throw new BizException(ResponseStatusEnum.USER_ID_NOT_NULl);
@@ -1612,6 +1645,35 @@ public class EmbyUserServiceImpl extends ServiceImpl<EmbyUserMapper, EmbyUser> i
             log.warn("Emby用户不存在，跳过禁用，embyUserId={}", embyUser.getEmbyUserId());
          }
       }
+   }
+
+   @Override
+   public void deleteUserByBot(Long userId, boolean owner) throws ApiException {
+      EmbyUser embyUser = this.getById(userId);
+      if (embyUser == null) {
+         throw new BizException(ResponseStatusEnum.USER_NOT_EXIST);
+      }
+
+      this.assertBotTargetCanBeManaged(embyUser, owner);
+      this.userOauthBindingMapper.delete(new LambdaQueryWrapper<UserOauthBinding>().eq(UserOauthBinding::getUserId, userId));
+      this.adminMenuPermissionService.removeAssignments(userId);
+      this.removeById(userId);
+
+      try {
+         EmbyInfoCacheManagerUtils.EmbyServerConfig serverConfig = this.resolveServerConfig(embyUser.getEmbyInfoId());
+         UserServiceApi userServiceApi = this.buildUserServiceApi(serverConfig);
+         userServiceApi.deleteUsersById(embyUser.getEmbyUserId());
+      } catch (ApiException var7) {
+         if (var7.getCode() != 404) {
+            throw var7;
+         }
+
+         log.warn("Emby用户不存在，跳过远程删除，embyUserId={}", embyUser.getEmbyUserId());
+      } catch (BizException var8) {
+         log.warn("Emby服务器配置异常，跳过远程用户删除: userId={}, error={}", userId, var8.getMessage());
+      }
+
+      this.publishSimultaneousPlaybackUserConfigCleanup(embyUser);
    }
 
    @Override

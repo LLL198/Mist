@@ -6,6 +6,7 @@ import com.una.embyhub.config.common.enums.RegisterChannelEnum;
 import com.una.embyhub.config.common.exception.BizException;
 import com.una.embyhub.config.common.telegrambot.TelegramBotAuthorizationService;
 import com.una.embyhub.config.common.telegrambot.TelegramBotPermission;
+import com.una.embyhub.config.common.telegrambot.MistTelegramStyle;
 import com.una.embyhub.config.common.utils.RedisLockUtils;
 import com.una.embyhub.model.dto.request.embyuser.EmbyUserSave;
 import com.una.embyhub.model.dto.response.embyuser.EmbyUserCustomResponse;
@@ -511,8 +512,8 @@ public class PointsBot {
             } else {
                CheckinResult result = this.doCheckin(profile);
                String reply = result.isAlreadyCheckedIn()
-                  ? String.format("你今天已签到过啦，当前积分 %d。", result.getTotalPoints())
-                  : String.format("✅ 签到成功：%s（连续 %d 天），当前积分 %d。", result.getMessage(), result.getStreak(), result.getTotalPoints());
+                  ? MistTelegramStyle.plainPanel("今日签到") + String.format("今天已经完成签到。\n\n当前积分：%d", result.getTotalPoints())
+                  : MistTelegramStyle.plainPanel("签到成功") + String.format("%s\n连续签到：%d 天\n当前积分：%d", result.getMessage(), result.getStreak(), result.getTotalPoints());
                if (!groupChat) {
                   this.sendMessage(chatId, reply);
                } else {
@@ -555,7 +556,13 @@ public class PointsBot {
          } else {
             String levelLabel = profile.getLevelName() == null ? "未设置" : profile.getLevelName();
             String userLabel = this.formatUser(profile);
-            String reply = String.format("\ud83c\udf01 Mist 积分中心\n\n用户：%s\n当前积分：%d\n当前等级：%s", userLabel, profile.getPoints(), levelLabel);
+            String reply = MistTelegramStyle.plainPanel("积分中心")
+               + "👤 用户\n"
+               + userLabel
+               + "\n\n💠 当前积分\n"
+               + profile.getPoints()
+               + "\n\n🏷 当前等级\n"
+               + levelLabel;
             if (this.isGroupChat(message)) {
                this.deleteMessageDelayed(chatId, message.getMessageId(), 15);
                this.sendReplyAndDelete(chatId, message.getMessageId(), reply, 15);
@@ -656,14 +663,14 @@ public class PointsBot {
    private void sendFoamBagBorrowedNotice(long chatId, User user, PointsBotFoamBag record) {
       String mention = this.redPacketUserMention(user.getId(), user.getUserName(), this.displayName(user));
       this.sendFoamBagGroupNotice(
-         chatId, "\ud83c\udf01 " + mention + " 取出雾袋，获得 <b>" + record.getPrincipalPoints() + "</b> 积分！\n" + this.randomFoamBagBlessing(FOAM_BAG_BORROW_BLESSINGS)
+         chatId, MistTelegramStyle.htmlPanel("雾袋") + mention + " 领取了 <b>" + record.getPrincipalPoints() + "</b> 积分！\n\n" + this.randomFoamBagBlessing(FOAM_BAG_BORROW_BLESSINGS)
       );
    }
 
    private void sendFoamBagRepaidNotice(long chatId, User user, PointsBotFoamBag record) {
       String mention = this.redPacketUserMention(user.getId(), user.getUserName(), this.displayName(user));
       this.sendFoamBagGroupNotice(
-         chatId, "\ud83d\udcb8 " + mention + " 还了 <b>" + record.getRepaymentPoints() + "</b> 积分！\n" + this.randomFoamBagBlessing(FOAM_BAG_REPAY_BLESSINGS)
+         chatId, MistTelegramStyle.htmlPanel("雾袋") + mention + " 归还了 <b>" + record.getRepaymentPoints() + "</b> 积分！\n\n" + this.randomFoamBagBlessing(FOAM_BAG_REPAY_BLESSINGS)
       );
    }
 
@@ -687,18 +694,18 @@ public class PointsBot {
          throw new BizException("这个雾袋积分档位已不可用，请返回刷新");
       } else {
          int repayment = Math.multiplyExact(amount, config.getRepaymentMultiplier());
-         String text = "\ud83c\udf01 Mist 雾袋确认\n\n\ud83c\udf81 本次获得："
+      String text = MistTelegramStyle.plainPanel("雾袋 · 确认") + "🎁 本次获得："
             + amount
-            + " 积分\n\ud83d\udd01 需要归还："
+            + " 积分\n🔁 需要归还："
             + repayment
             + " 积分\n⏰ 归还期限："
             + config.getRepaymentHours()
-            + " 小时\n\n✅ 确认后立即到账。\n⚠️ 必须一次归还全部积分；逾期会将积分归零，并限制 "
+            + " 小时\n\n规则\n确认后立即到账。\n逾期会将积分归零，并限制 "
             + config.getPenaltyDays()
             + " 天无法签到、使用雾袋或接收他人转赠积分。";
          List<List<TelegramBotApiClient.InlineButton>> keyboard = List.of(
             List.of(
-               new TelegramBotApiClient.InlineButton("✅ 确认袋 " + amount + " 积分", "foam_bag:confirm:" + amount),
+               new TelegramBotApiClient.InlineButton("✅ 确认领取 " + amount + " 积分", "foam_bag:confirm:" + amount),
                new TelegramBotApiClient.InlineButton("↩️ 返回", "foam_bag:back")
             )
          );
@@ -709,58 +716,48 @@ public class PointsBot {
    private void renderFoamBagPanel(long chatId, Long messageId, long pointsChatId, User user) {
       FoamBagState state = this.foamBagService.getState(pointsChatId, user.getId(), user.getUserName(), this.displayName(user));
       PointsBotFoamBagConfigResponse config = state.getConfig();
-      StringBuilder text = new StringBuilder("\ud83c\udf01 Mist 雾袋\n\n");
+      StringBuilder text = new StringBuilder(MistTelegramStyle.plainPanel("雾袋"));
       List<List<TelegramBotApiClient.InlineButton>> keyboard = new ArrayList<>();
       if (state.getPenaltyUntil() != null) {
-         text.append("\ud83d\udeab 当前处于逾期限制期\n")
-            .append("⏳ 剩余：")
+         text.append("🚫 状态\n逾期限制中\n\n")
+            .append("⏳ 剩余时间\n")
             .append(this.foamBagService.formatRemaining(state.getPenaltyUntil()))
-            .append("\n")
-            .append("\ud83d\udcc5 恢复时间：")
+            .append("\n\n📅 恢复时间\n")
             .append(state.getPenaltyUntil().format(FOAM_BAG_TIME_FORMATTER))
-            .append("\n\n")
-            .append("\ud83d\udccc 限制期间无法签到、使用雾袋或接收他人转赠积分。\n")
-            .append("\ud83d\udcac 发言积分仍可正常获得。");
+            .append("\n\n提示\n限制期间无法签到、使用雾袋或接收他人转赠积分。\n发言积分仍可正常获得。");
          keyboard.add(List.of(new TelegramBotApiClient.InlineButton("\ud83d\udd04 刷新剩余时间", "foam_bag:refresh")));
       } else if (state.getActiveBag() != null) {
          PointsBotFoamBag active = state.getActiveBag();
-         text.append("\ud83d\udcb0 当前积分：")
+         text.append("💠 账户积分\n")
             .append(state.getPoints())
-            .append("\n")
-            .append("\ud83c\udf01 已袋积分：")
+            .append("\n\n🌁 当前雾袋\n已领取：")
             .append(active.getPrincipalPoints())
-            .append("\n")
-            .append("\ud83d\udd01 应归还：")
+            .append(" 积分\n应归还：")
             .append(active.getRepaymentPoints())
-            .append("\n")
-            .append("⏰ 最晚归还：")
+            .append(" 积分\n⏰ 最晚归还：")
             .append(active.getDueAt().format(FOAM_BAG_TIME_FORMATTER))
-            .append("\n")
-            .append("⏳ 剩余：")
+            .append("\n⏳ 剩余时间：")
             .append(this.foamBagService.formatRemaining(active.getDueAt()))
-            .append("\n\n")
-            .append("\ud83d\udccc 必须一次归还全部积分，归还后才能再次使用雾袋。");
+            .append("\n\n提示\n必须一次归还全部积分，归还后才能再次使用雾袋。");
          keyboard.add(List.of(new TelegramBotApiClient.InlineButton("\ud83d\udcb8 归还 " + active.getRepaymentPoints() + " 积分", "foam_bag:repay")));
          keyboard.add(List.of(new TelegramBotApiClient.InlineButton("\ud83d\udd04 刷新余额与时间", "foam_bag:refresh")));
       } else if (!this.isFoamBagEnabled()) {
-         text.append("⏸️ 当前渠道已关闭雾袋，新申请已暂停。\n").append("\ud83d\udccc 已有记录和逾期限制不会受开关影响；若关闭前存在待归还记录，仍可通过原面板完成归还。");
+         text.append("⏸️ 当前渠道已关闭雾袋\n新申请已暂停。\n\n提示\n已有记录和逾期限制不会受开关影响；若关闭前存在待归还记录，仍可通过原面板完成归还。");
       } else {
-         text.append("\ud83d\udcb0 当前积分：")
+         text.append("💠 账户积分\n")
             .append(state.getPoints())
-            .append("\n")
-            .append("\ud83d\udcc5 今日已用：")
+            .append("\n\n📅 今日已用\n")
             .append(state.getUsedToday())
             .append("/")
             .append(config.getDailyLimit())
-            .append(" 次\n\n")
-            .append("\ud83d\udccb 雾袋规则\n")
-            .append("\ud83c\udf81 选择一个积分档位，积分立即到账。\n")
+            .append(" 次\n\n📋 使用规则\n")
+            .append("选择一个积分档位，积分立即到账。\n")
             .append("⏰ 请在 ")
             .append(config.getRepaymentHours())
             .append(" 小时内归还 ")
             .append(config.getRepaymentMultiplier())
             .append(" 倍积分。\n")
-            .append("\ud83d\udd01 必须归还后才能继续袋；每日最多 ")
+            .append("🔁 必须归还后才能继续领取；每日最多 ")
             .append(config.getDailyLimit())
             .append(" 次。\n")
             .append("⚠️ 逾期会将积分归零，并限制 ")
@@ -770,7 +767,7 @@ public class PointsBot {
          List<TelegramBotApiClient.InlineButton> tierRow = new ArrayList<>();
 
          for (Integer amount : config.getAmountTiers()) {
-            tierRow.add(new TelegramBotApiClient.InlineButton("\ud83c\udf01 袋 " + amount + " 积分", "foam_bag:select:" + amount));
+            tierRow.add(new TelegramBotApiClient.InlineButton("🌁 领取 " + amount + " 积分", "foam_bag:select:" + amount));
             if (tierRow.size() == 3) {
                keyboard.add(List.copyOf(tierRow));
                tierRow.clear();
@@ -1243,18 +1240,12 @@ public class PointsBot {
 
       int remainingCount = redPacket.getRemainingCount() == null ? 0 : redPacket.getRemainingCount();
       int refundedPoints = redPacket.getRefundedPoints() == null ? 0 : redPacket.getRefundedPoints();
-      StringBuilder text = new StringBuilder();
-      if ("FINISHED".equals(status)) {
-         text.append("\ud83c\udf8a <b>红包已抢完</b>\n\n");
-      } else if ("EXPIRED".equals(status)) {
-         text.append("⏰ <b>红包已过期</b>\n\n");
-      } else if ("CANCELLED".equals(status)) {
-         text.append("❌ <b>红包已取消</b>\n\n");
-      } else {
-         text.append("\ud83e\udde7 <b>积分红包</b>\n\n");
-      }
-
-      text.append("\ud83d\udc64 发起人：")
+      String panelTitle = "FINISHED".equals(status)
+         ? "积分红包 · 已结束"
+         : ("EXPIRED".equals(status) ? "积分红包 · 已过期" : ("CANCELLED".equals(status) ? "积分红包 · 已取消" : "积分红包"));
+      StringBuilder text = new StringBuilder(MistTelegramStyle.htmlPanel(panelTitle));
+      text.append(MistTelegramStyle.htmlSection("红包概览"))
+         .append("👤 发起人：")
          .append(this.redPacketUserMention(redPacket.getCreatorUserId(), redPacket.getCreatorUsername(), redPacket.getCreatorDisplayName()))
          .append("\n")
          .append("\ud83d\udcb0 红包积分：")
@@ -1279,7 +1270,7 @@ public class PointsBot {
       }
 
       if (this.isTerminalRedPacketStatus(status) && claims != null && !claims.isEmpty()) {
-         text.append("\n\n\ud83d\udccb <b>领取记录</b>\n");
+         text.append(MistTelegramStyle.htmlSection("领取记录"));
          int index = 1;
 
          for (PointsBotRedPacketClaim claim : claims) {
@@ -1304,7 +1295,7 @@ public class PointsBot {
       boolean open = forceOpen || "OPEN".equals(redPacket.getStatus());
       return open && redPacket.getRemainingCount() != null && redPacket.getRemainingCount() > 0
          ? TelegramBotApiClient.inlineKeyboard(
-            List.of(List.of(new TelegramBotApiClient.InlineButton("\ud83e\udde7 抢红包", "red_packet:claim:" + redPacket.getId())))
+            List.of(List.of(new TelegramBotApiClient.InlineButton("🌁 领取积分", "red_packet:claim:" + redPacket.getId())))
          )
          : null;
    }
@@ -1350,7 +1341,7 @@ public class PointsBot {
             this.botApiClient
                .sendMessage(
                   redPacket.getCreatorUserId(),
-                  "↩️ <b>红包剩余积分已退回</b>\n\n\ud83e\udde7 红包编号：" + redPacket.getId() + "\n\ud83d\udcb0 退回积分：" + refundedPoints + "\n✅ 积分已经回到你的账户。",
+                  MistTelegramStyle.htmlPanel("红包积分已退回") + "🧧 红包编号：" + redPacket.getId() + "\n💠 退回积分：" + refundedPoints + "\n✅ 积分已经回到你的账户。",
                   null,
                   "HTML",
                   null,
@@ -1386,7 +1377,7 @@ public class PointsBot {
       if (prizes.isEmpty()) {
          this.sendMessage(chatId, "暂无可兑换的奖品。");
       } else {
-         StringBuilder builder = new StringBuilder("\ud83c\udf01 Mist 积分奖品\n\n");
+         StringBuilder builder = new StringBuilder(MistTelegramStyle.plainPanel("积分奖品"));
          int index = 1;
 
          for (PointsBotPrizeConfig prize : prizes) {
@@ -1432,7 +1423,7 @@ public class PointsBot {
          if (configs.isEmpty()) {
             this.sendMessage(chatId, "暂无可兑换的项目。");
          } else {
-            StringBuilder builder = new StringBuilder("\ud83c\udf01 Mist 积分兑换\n\n");
+            StringBuilder builder = new StringBuilder(MistTelegramStyle.plainPanel("积分兑换"));
             int validCount = 0;
             List<TelegramBotApiClient.InlineButton> actionButtons = new ArrayList<>();
 
@@ -1521,7 +1512,7 @@ public class PointsBot {
       String[] parts = message.getText().trim().split("\\s+", 4);
       String action = parts.length > 1 ? parts[1].toLowerCase() : "";
       if (!StringUtils.hasText(action)) {
-         StringBuilder usage = new StringBuilder("\ud83c\udfb0 抽奖命令用法\n\n");
+         StringBuilder usage = new StringBuilder(MistTelegramStyle.plainPanel("积分抽奖 · 使用说明"));
          usage.append("【管理员命令】\n");
          usage.append("/lottery publish [人数] [时间]\n");
          usage.append("  └ 发布抽奖 (例如: /lottery 3 10m)\n");
@@ -1612,11 +1603,10 @@ public class PointsBot {
                            return;
                         }
 
-                        StringBuilder transferMsg = new StringBuilder();
-                        transferMsg.append("\ud83d\udcb8 转账成功\n\n");
-                        transferMsg.append("\ud83d\udce4 转出方：").append(this.formatUser(sender)).append("\n");
-                        transferMsg.append("\ud83d\udce5 接收方：").append(this.formatUser(target)).append("\n");
-                        transferMsg.append("\ud83d\udcb0 转账金额：").append(amount).append(" 积分\n\n");
+                        StringBuilder transferMsg = new StringBuilder(MistTelegramStyle.plainPanel("积分转账成功"));
+                        transferMsg.append("📤 转出方：").append(this.formatUser(sender)).append("\n");
+                        transferMsg.append("📥 接收方：").append(this.formatUser(target)).append("\n");
+                        transferMsg.append("💠 转账金额：").append(amount).append(" 积分\n\n");
                         if (!isAdmin) {
                            transferMsg.append("\ud83d\udc64 ").append(this.formatUser(sender)).append(" 剩余积分：").append(sender.getPoints()).append("\n");
                         }
@@ -2059,9 +2049,9 @@ public class PointsBot {
                   this.botApiClient
                      .sendMessage(
                         chatId,
-                        String.format("\ud83c\udf81 发起抽奖 (人数:%d, 时间:%s)\n请选择奖品：", winnerCount, duration),
+                        MistTelegramStyle.htmlPanel("发起积分抽奖") + String.format("👥 人数：%d\n⏱ 时长：%s\n\n请选择奖品：", winnerCount, duration),
                         null,
-                        null,
+                        "HTML",
                         TelegramBotApiClient.inlineKeyboard(keyboard),
                         false
                      );
@@ -2177,16 +2167,16 @@ public class PointsBot {
 
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             String formattedDrawAt = drawAt.format(formatter);
-            StringBuilder message = new StringBuilder("\ud83c\udf89 抽奖已发起！\n");
-            message.append("奖品：").append(prize.getPrizeName());
+            StringBuilder message = new StringBuilder(MistTelegramStyle.htmlPanel("抽奖已发起"));
+            message.append("🎁 奖品：").append(prize.getPrizeName());
             if (prize.getRequiredPoints() != null && prize.getRequiredPoints() > 0) {
                message.append(String.format("（价值 %d 积分）", prize.getRequiredPoints()));
             }
 
-            message.append(String.format("\n中奖名额：%d人", winnerCount));
-            message.append("\n抽奖说明：").append(lotteryTitle);
-            message.append("\n\n").append(participationInfo);
-            message.append("\n开奖时间：").append(formattedDrawAt);
+            message.append(String.format("\n👥 中奖名额：%d 人", winnerCount));
+            message.append("\n📝 抽奖说明：").append(lotteryTitle);
+            message.append("\n\n📌 ").append(participationInfo);
+            message.append("\n⏰ 开奖时间：").append(formattedDrawAt);
 
             try {
                TelegramBotApiClient.ApiMessage sentMessage = this.botApiClient.sendMessage(chatId, message.toString(), null, "HTML", null, false);
@@ -2233,7 +2223,7 @@ public class PointsBot {
                .getOrCreate(chatId, message.getFrom().getId(), message.getFrom().getUserName(), this.displayName(message.getFrom()));
             boolean added = this.lotteryService.addEntry(active.getId(), chatId, profile, note);
             if (added) {
-               this.sendReplyAndDelete(chatId, message.getMessageId(), String.format("\ud83c\udf89 成功参与抽奖！\n本次抽奖：%s", active.getTitle()), 10);
+               this.sendReplyAndDelete(chatId, message.getMessageId(), MistTelegramStyle.plainPanel("参与成功") + String.format("本次抽奖：%s", active.getTitle()), 10);
             } else {
                this.sendReplyAndDelete(chatId, message.getMessageId(), "你已经参与过本次抽奖了。", 10);
             }
@@ -2270,8 +2260,13 @@ public class PointsBot {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             String formattedDrawAt = active.getDrawAt().format(formatter);
             int entryCount = this.lotteryService.listEntries(active.getId()).size();
-            String statusMsg = String.format(
-               "\ud83c\udfb0 进行中的抽奖\n\n抽奖说明：%s%s\n\n%s\n当前参与人数：%d\n开奖时间：%s", active.getTitle(), prizeDisplay, participationInfo, entryCount, formattedDrawAt
+            String statusMsg = MistTelegramStyle.htmlPanel("进行中的抽奖") + String.format(
+               "📝 抽奖说明：%s%s\n\n📌 %s\n👥 当前参与人数：%d\n⏰ 开奖时间：%s",
+               active.getTitle(),
+               prizeDisplay,
+               participationInfo,
+               entryCount,
+               formattedDrawAt
             );
             this.sendHtmlReplyAndDelete(chatId, message.getMessageId(), statusMsg, 30);
          }
@@ -2293,7 +2288,7 @@ public class PointsBot {
             } else {
                List<PointsBotLotteryEntry> winners = this.lotteryService.drawLottery(active, new Random());
                if (winners.isEmpty()) {
-                  this.sendMessage(chatId, String.format("\ud83c\udf89 抽奖结果：%s\n无人参与，抽奖已取消。", active.getTitle()));
+                  this.sendMessage(chatId, MistTelegramStyle.plainPanel("抽奖结果") + String.format("抽奖：%s\n无人参与，抽奖已取消。", active.getTitle()));
                   if (active.getAnnouncementMessageId() != null) {
                      try {
                         this.botApiClient.unpinChatMessage(chatId, active.getAnnouncementMessageId());
@@ -2325,10 +2320,10 @@ public class PointsBot {
 
                      String name = winner.getUsername() != null && !winner.getUsername().isBlank() ? "@" + winner.getUsername() : winner.getDisplayName();
                      winnerNames.append(name);
-                     this.sendMessage(winner.getUserId(), String.format("\ud83c\udf89 恭喜中奖！\n抽奖：%s\n请联系管理员领取奖励。", active.getTitle()));
+                     this.sendMessage(winner.getUserId(), MistTelegramStyle.plainPanel("恭喜中奖") + String.format("抽奖：%s\n请联系管理员领取奖励。", active.getTitle()));
                   }
 
-                  this.sendMessage(chatId, String.format("\ud83c\udf89 抽奖结果：%s\n中奖者：%s", active.getTitle(), winnerNames.toString()));
+                  this.sendMessage(chatId, MistTelegramStyle.plainPanel("抽奖结果") + String.format("抽奖：%s\n中奖者：%s", active.getTitle(), winnerNames.toString()));
                   log.info("Attempting to unpin lottery in chat {}. AnnouncementMessageId: {}", chatId, active.getAnnouncementMessageId());
                   if (active.getAnnouncementMessageId() != null) {
                      try {
@@ -2397,7 +2392,7 @@ public class PointsBot {
             PointsProfile updatedProfile = this.pointsStore.findByUserId(targetProfile.getChatId(), targetProfile.getUserId());
             long remainingPoints = updatedProfile != null ? updatedProfile.getPoints() : targetProfile.getPoints();
             StringBuilder userMsg = new StringBuilder();
-            userMsg.append("✅ 积分注册账号创建成功！\n");
+            userMsg.append(MistTelegramStyle.plainPanel("积分注册成功"));
             userMsg.append("用户名：").append(response.getEmbyUserName()).append("\n");
             userMsg.append("密码：").append(response.getEmbyUserPassword()).append("\n");
             userMsg.append("到期时间：").append(response.getExpirationDate()).append("\n");
@@ -2410,7 +2405,7 @@ public class PointsBot {
                try {
                   long adminChatId = Long.parseLong(this.config.getDmChatId());
                   StringBuilder adminMsg = new StringBuilder();
-                  adminMsg.append("\ud83d\udce2 积分注册通知\n");
+                  adminMsg.append(MistTelegramStyle.plainPanel("积分注册通知"));
                   adminMsg.append("用户：").append(targetLabel).append("\n");
                   adminMsg.append("Telegram ID：").append(targetUserId).append("\n");
                   adminMsg.append("Emby用户名：").append(response.getEmbyUserName()).append("\n");
@@ -2500,14 +2495,14 @@ public class PointsBot {
                         this.sendReplyAndDelete(
                            chatId,
                            message.getMessageId(),
-                           String.format("✅ @%s 成功参与抽奖！", user.getUserName() != null ? user.getUserName() : this.displayName(user)),
+                           String.format("🌁 MIST / @%s 已加入抽奖", user.getUserName() != null ? user.getUserName() : this.displayName(user)),
                            10
                         );
                      } else {
                         this.sendReplyAndDelete(
                            chatId,
                            message.getMessageId(),
-                           String.format("⚠️ @%s 你已经参与过本次抽奖了", user.getUserName() != null ? user.getUserName() : this.displayName(user)),
+                           String.format("🌁 MIST / @%s 已经参与过本次抽奖", user.getUserName() != null ? user.getUserName() : this.displayName(user)),
                            10
                         );
                      }
@@ -2525,7 +2520,7 @@ public class PointsBot {
    private void handleSanguoshaHelp(Message message) {
       long chatId = message.getChatId();
       int dailyLimit = Math.max(0, this.config.getDailySanguoshaPlayLimit());
-      StringBuilder usage = new StringBuilder("\ud83c\udfb4 三国杀玩法\n\n");
+      StringBuilder usage = new StringBuilder(MistTelegramStyle.plainPanel("三国杀玩法"));
       usage.append("在群聊中 @一位用户，并且消息里只保留「三国杀」即可触发。\n");
       usage.append("示例：@user 三国杀\n");
       usage.append("系统会随机抽一张牌，生成双方积分变化或无事发生。");
@@ -2915,7 +2910,7 @@ public class PointsBot {
 
    private String buildSanguoshaHeader(PointsProfile actor, PointsProfile target, SanguoshaCard card) {
       String targetLabel = actor.getUserId() == target.getUserId() ? "自己" : this.formatUser(target);
-      return String.format("\ud83c\udfb4 %s 对 %s 发动 %s【%s】", this.formatUser(actor), targetLabel, card.getEmoji(), card.getName());
+      return MistTelegramStyle.plainPanel("三国杀") + String.format("🎴 %s 对 %s 发动 %s【%s】", this.formatUser(actor), targetLabel, card.getEmoji(), card.getName());
    }
 
    private String buildSanguoshaReason(SanguoshaCard card, String action) {
@@ -3002,7 +2997,7 @@ public class PointsBot {
    }
 
    private String buildLeaderboard(List<PointsProfile> list) {
-      StringBuilder builder = new StringBuilder("\ud83c\udfc6 积分排行榜\n");
+      StringBuilder builder = new StringBuilder(MistTelegramStyle.plainPanel("积分排行榜"));
       int rank = 1;
 
       for (PointsProfile profile : list) {
@@ -3478,7 +3473,7 @@ public class PointsBot {
    }
 
    private String renderScratchWins(String title, List<PointsBotScratchEntry> records, int pageNumber, boolean showPage) {
-      StringBuilder builder = new StringBuilder("\ud83c\udf01 <b>").append(escapeTelegramHtml(title)).append("</b>\n");
+      StringBuilder builder = new StringBuilder(MistTelegramStyle.htmlPanel(escapeTelegramHtml(title)));
       if (showPage) {
          builder.append("\ud83d\udcc4 第 ").append(pageNumber + 1).append(" 页\n");
       }
@@ -3868,7 +3863,7 @@ public class PointsBot {
       PointsBotScratchRound round = view.round();
       List<PointsBotScratchEntry> entries = view.entries();
       boolean open = "OPEN".equals(round.getStatus());
-      StringBuilder builder = new StringBuilder("\ud83c\udf01 <b>雾中刮刮乐</b>\n\n");
+      StringBuilder builder = new StringBuilder(MistTelegramStyle.htmlPanel("雾中刮刮乐"));
       if (open) {
          builder.append("每格消耗：<b>")
             .append(50)
@@ -4213,7 +4208,7 @@ public class PointsBot {
             PointsBotBrainRound round = result.round();
             String championship = Boolean.TRUE.equals(round.getPeak()) ? "Brain 巅峰局冠军" : "Brain 脑力挑战冠军";
             BrainGameService.RoundView view = new BrainGameService.RoundView(round, result.entries(), result.jackpotAfter());
-            String announcement = "\ud83c\udf89 恭喜 " + this.formatBrainUser(champion) + " 获得了 " + championship + "！\n\n" + this.renderBrainPanel(view);
+            String announcement = MistTelegramStyle.htmlPanel("脑雾榜结算") + "恭喜 " + this.formatBrainUser(champion) + " 获得了 " + championship + "！\n\n" + this.renderBrainPanel(view);
 
             try {
                this.botApiClient.sendMessage(round.getChatId(), announcement, null, "HTML", null, false);
@@ -4227,8 +4222,8 @@ public class PointsBot {
    private String renderBrainPanel(BrainGameService.RoundView view) {
       PointsBotBrainRound round = view.round();
       List<PointsBotBrainEntry> entries = view.entries();
-      String title = Boolean.TRUE.equals(round.getPeak()) ? "\ud83c\udfc6 Brain 巅峰局" : "\ud83e\udde0 Brain 脑力挑战";
-      StringBuilder text = new StringBuilder(title).append(" #").append(round.getId()).append("\n\n");
+      String title = Boolean.TRUE.equals(round.getPeak()) ? "Brain 巅峰局" : "Brain 脑力挑战";
+      StringBuilder text = new StringBuilder(MistTelegramStyle.htmlPanel(title)).append("局号：<b>#").append(round.getId()).append("</b>\n\n");
       if ("REGISTERING".equals(round.getStatus())) {
          text.append("报名积分：")
             .append(round.getEntryCost())
@@ -4354,13 +4349,13 @@ public class PointsBot {
    private void handleHellDice(Message message) {
       long chatId = message.getChatId();
       if (!this.isGroupChat(message)) {
-         this.sendMessage(chatId, "\ud83d\udd25 地狱骰仅限积分群聊使用。");
+         this.sendMessage(chatId, MistTelegramStyle.plainPanel("地狱骰") + "仅限积分群聊使用。");
       } else {
          User user = message.getFrom();
          if (user != null && !Boolean.TRUE.equals(user.getIsBot())) {
             String[] args = message.getText().trim().split("\\s+");
             if (args.length != 2) {
-               this.sendReplyAndDeleteBoth(chatId, message.getMessageId(), "\ud83d\udd25 用法：/helldice <积分数>\n例如：/helldice 10", 15);
+               this.sendReplyAndDeleteBoth(chatId, message.getMessageId(), MistTelegramStyle.plainPanel("地狱骰 · 用法") + "/helldice <积分数>\n例如：/helldice 10", 15);
             } else {
                int bet;
                try {
@@ -4384,7 +4379,7 @@ public class PointsBot {
                   if (var13.getCode() == HellDiceGameService.RuleCode.VAULT_UNAVAILABLE) {
                      this.sendHellVaultUnavailable(message, gameConfig, var13.getMessage());
                   } else {
-                     this.sendReplyAndDeleteBoth(chatId, message.getMessageId(), "\ud83d\udd25 " + var13.getMessage(), 15);
+                     this.sendReplyAndDeleteBoth(chatId, message.getMessageId(), MistTelegramStyle.plainPanel("地狱骰") + var13.getMessage(), 15);
                   }
                } catch (RuntimeException var14) {
                   log.error("地狱骰开局失败: chatId={}, userId={}", chatId, user.getId(), var14);
@@ -4405,11 +4400,11 @@ public class PointsBot {
 
    private void sendHellVaultUnavailable(Message message, HellDiceGameConfig gameConfig, String reason) {
       HellDiceGameService.VaultView vault = this.hellDiceGameService.getVaultView(message.getChatId(), gameConfig);
-      String text = "\ud83d\udd25 <b>地狱骰暂时停盘</b>\n\n"
+      String text = MistTelegramStyle.htmlPanel("地狱骰暂时停盘")
          + escapeTelegramHtml(reason)
-         + "。\n当前地狱金库：<b>"
+         + "。\n\n💠 当前地狱金库：<b>"
          + vault.balance()
-         + "</b> 积分\n\n可以点击下方按钮提醒管理员补充金库；同一群30分钟内只会提醒一次。";
+         + "</b> 积分\n\n可以点击下方按钮提醒管理员补充金库；同一群 30 分钟内只会提醒一次。";
       List<List<TelegramBotApiClient.InlineButton>> keyboard = List.of(List.of(new TelegramBotApiClient.InlineButton("\ud83d\udd14 提醒管理员补充金库", "hell:remind")));
 
       try {
@@ -4428,7 +4423,7 @@ public class PointsBot {
       } else {
          HellDiceGameConfig gameConfig = this.gameConfigService.getHellDiceConfig();
          List<HellDiceGameService.RankingEntry> ranking = this.hellDiceGameService.weeklyRanking(message.getChatId(), gameConfig.getLeaderboardLimit());
-         StringBuilder text = new StringBuilder("\ud83d\udc51 <b>本周地狱之王</b>\n\n");
+         StringBuilder text = new StringBuilder(MistTelegramStyle.htmlPanel("地狱骰 · 周榜"));
          if (ranking.isEmpty()) {
             text.append("本周还没有有效成绩，使用 /helldice &lt;积分&gt; 开始挑战。");
          } else {
@@ -4559,7 +4554,7 @@ public class PointsBot {
                this.clearHellReminderCooldown(cooldownKey);
                this.answerHellCallback(callback, "尚未配置有积分管理权限的管理员，请直接在群内联系管理员", true);
             } else {
-               String notice = "\ud83d\udd14 <b>地狱骰金库提醒</b>\n\n积分群：<code>"
+               String notice = MistTelegramStyle.htmlPanel("地狱骰 · 金库提醒") + "积分群：<code>"
                   + panel.getChatId()
                   + "</code>\n提醒用户："
                   + this.formatHellUser(user.getId(), user.getUserName(), this.displayName(user))
@@ -4741,7 +4736,7 @@ public class PointsBot {
    }
 
    private String renderHellVaultAdminPanel(HellDiceGameService.VaultView vault, String status) {
-      StringBuilder text = new StringBuilder("\ud83d\udd25 <b>地狱骰金库管理</b>\n\n")
+      StringBuilder text = new StringBuilder(MistTelegramStyle.htmlPanel("地狱骰 · 金库管理"))
          .append("当前金库：<b>")
          .append(vault.balance())
          .append("</b> / ")
@@ -4842,10 +4837,10 @@ public class PointsBot {
    }
 
    private String renderHellPanel(HellDiceGameService.RoundView round) {
-      StringBuilder text = new StringBuilder("\ud83d\udd25 <b>地狱骰</b> #")
+      StringBuilder text = new StringBuilder(MistTelegramStyle.htmlPanel("地狱骰"))
+         .append("局号：<b>#")
          .append(round.id())
-         .append("\n\n")
-         .append("玩家：")
+         .append("</b>\n\n👤 玩家：")
          .append(this.formatHellUser(round.playerUserId(), round.playerUsername(), round.playerDisplayName()))
          .append("\n投入：<b>")
          .append(round.betPoints())
@@ -4986,7 +4981,7 @@ public class PointsBot {
          rows.add(
             List.of(
                new TelegramBotApiClient.InlineButton("\ud83d\udcb0 带走 " + round.currentPayout(), "hell:cash:" + round.id()),
-               new TelegramBotApiClient.InlineButton("\ud83d\udd25 继续下潜", "hell:continue:" + round.id())
+               new TelegramBotApiClient.InlineButton("🌁 继续下潜", "hell:continue:" + round.id())
             )
          );
       }
@@ -5399,20 +5394,20 @@ public class PointsBot {
          String winType = "赢得";
          if (this.blackjackGameService.isBlackjack(session.getPlayerHand())) {
             payout = (int)((double)session.getBetAmount() * 2.5);
-            resultText = String.format("\ud83c\udf89 %s <b>Blackjack!</b> 你赢得了 <b>%d</b> 积分！(赔率 3:2)", mention, payout - session.getBetAmount());
+            resultText = MistTelegramStyle.htmlPanel("21点结算") + String.format("🎉 %s <b>Blackjack!</b> 你赢得了 <b>%d</b> 积分！(赔率 3:2)", mention, payout - session.getBetAmount());
          } else {
             payout = session.getBetAmount() * 2;
-            resultText = String.format("\ud83c\udf89 %s <b>你赢了！</b> 获得 <b>%d</b> 积分！", mention, payout - session.getBetAmount());
+            resultText = MistTelegramStyle.htmlPanel("21点结算") + String.format("🎉 %s <b>你赢了！</b> 获得 <b>%d</b> 积分！", mention, payout - session.getBetAmount());
          }
 
          this.pointsStore.addPoints(profile, payout, "21点-盈利", null);
       } else if (push) {
          payout = session.getBetAmount();
-         resultText = String.format("\ud83e\udd1d %s <b>平局！</b> 退还 <b>%d</b> 积分。", mention, payout);
+         resultText = MistTelegramStyle.htmlPanel("21点结算") + String.format("🤝 %s <b>平局！</b> 退还 <b>%d</b> 积分。", mention, payout);
          this.pointsStore.addPoints(profile, payout, "21点-平局", null);
       } else {
-         resultText = String.format(
-            "\ud83d\udcb8 <a href=\"tg://user?id=%d\">%s</a> <b>你输了！</b> 本局损失 <b>%d</b> 积分。",
+         resultText = MistTelegramStyle.htmlPanel("21点结算") + String.format(
+            "💸 <a href=\"tg://user?id=%d\">%s</a> <b>你输了！</b> 本局损失 <b>%d</b> 积分。",
             session.getUserId(),
             this.displayName(this.pointsStore.findByUserId(session.getChatId(), session.getUserId()).getUsername(), session.getUserId()),
             session.getBetAmount()
@@ -5442,8 +5437,7 @@ public class PointsBot {
    }
 
    private String renderBlackjackMessage(BlackjackSession session, User user) {
-      StringBuilder sb = new StringBuilder();
-      sb.append("\ud83c\udfb2 <b>Blackjack (21点)</b>\n");
+      StringBuilder sb = new StringBuilder(MistTelegramStyle.htmlPanel("21点 Blackjack"));
       sb.append("玩家：").append(this.displayName(user)).append("\n");
       sb.append("下注：").append(session.getBetAmount()).append(" 积分\n\n");
       sb.append("\ud83d\udc68\u200d\ud83d\udcbc <b>庄家牌面：</b>\n");
@@ -5547,7 +5541,7 @@ public class PointsBot {
                                     int payout = betAmount * 2;
                                     this.pointsStore.addPoints(profile, payout, "DICE_WIN", null);
                                     resultText = String.format(
-                                       "\ud83c\udfb2 <b>比大小结果</b>\n\n\ud83d\udc64 你: <b>%d</b>\n\ud83e\udd16 庄家: <b>%d</b>\n\n\ud83c\udf89 %s <b>你赢了！</b> 获得 <b>%d</b> 积分！",
+                                       MistTelegramStyle.htmlPanel("比大小结果") + "👤 你：<b>%d</b>\n🤖 庄家：<b>%d</b>\n\n🎉 %s <b>你赢了！</b> 获得 <b>%d</b> 积分！",
                                        playerValue,
                                        botValue,
                                        mention,
@@ -5555,7 +5549,7 @@ public class PointsBot {
                                     );
                                  } else if (playerValue < botValue) {
                                     resultText = String.format(
-                                       "\ud83c\udfb2 <b>比大小结果</b>\n\n\ud83d\udc64 你: <b>%d</b>\n\ud83e\udd16 庄家: <b>%d</b>\n\n\ud83d\udcb8 %s <b>你输了！</b> 本局损失 <b>%d</b> 积分。",
+                                       MistTelegramStyle.htmlPanel("比大小结果") + "👤 你：<b>%d</b>\n🤖 庄家：<b>%d</b>\n\n💸 %s <b>你输了！</b> 本局损失 <b>%d</b> 积分。",
                                        playerValue,
                                        botValue,
                                        mention,
@@ -5564,7 +5558,7 @@ public class PointsBot {
                                  } else {
                                     this.pointsStore.addPoints(profile, betAmount, "DICE_DRAW", null);
                                     resultText = String.format(
-                                       "\ud83c\udfb2 <b>比大小结果</b>\n\n\ud83d\udc64 你: <b>%d</b>\n\ud83e\udd16 庄家: <b>%d</b>\n\n\ud83e\udd1d %s <b>平局！</b> 退还 <b>%d</b> 积分。",
+                                       MistTelegramStyle.htmlPanel("比大小结果") + "👤 你：<b>%d</b>\n🤖 庄家：<b>%d</b>\n\n🤝 %s <b>平局！</b> 退还 <b>%d</b> 积分。",
                                        playerValue,
                                        botValue,
                                        mention,
@@ -5644,13 +5638,13 @@ public class PointsBot {
                                     int payout = betAmount * 20;
                                     this.pointsStore.addPoints(profile, payout, "老虎机-大奖", null);
                                     resultText = String.format(
-                                       "\ud83c\udfb0 <b>老虎机结果</b>\n\n\ud83c\udfaf 结果: <b>777 (Jackpot!)</b>\n\ud83c\udf89 %s <b>运气爆棚！</b> 赢得 <b>%d</b> 积分！(20倍)",
+                                       MistTelegramStyle.htmlPanel("幸运机结果") + "🎯 结果：<b>777 (Jackpot!)</b>\n🎉 %s <b>运气爆棚！</b> 赢得 <b>%d</b> 积分！(20倍)",
                                        mention,
                                        payout - betAmount
                                     );
                                  } else if (value != 1 && value != 22 && value != 43) {
                                     resultText = String.format(
-                                       "\ud83c\udfb0 <b>老虎机结果</b>\n\n\ud83d\udcb8 %s <b>未中奖</b>，本次损失 <b>%d</b> 积分。\n(提示: 仅 777/BAR/葡萄/柠檬 三连才中奖)",
+                                       MistTelegramStyle.htmlPanel("幸运机结果") + "💸 %s <b>未中奖</b>，本次损失 <b>%d</b> 积分。\n\n提示：仅 777 / BAR / 葡萄 / 柠檬三连才中奖。",
                                        mention,
                                        betAmount
                                     );
@@ -5659,7 +5653,7 @@ public class PointsBot {
                                     this.pointsStore.addPoints(profile, payout, "老虎机-盈利", null);
                                     String type = value == 1 ? "BAR" : (value == 22 ? "葡萄" : "柠檬");
                                     resultText = String.format(
-                                       "\ud83c\udfb0 <b>老虎机结果</b>\n\n\ud83c\udfaf 结果: <b>%s (三连!)</b>\n\ud83c\udf89 %s <b>恭喜中奖！</b> 赢得 <b>%d</b> 积分！(10倍)",
+                                       MistTelegramStyle.htmlPanel("幸运机结果") + "🎯 结果：<b>%s（三连）</b>\n🎉 %s <b>恭喜中奖！</b> 赢得 <b>%d</b> 积分！(10倍)",
                                        type,
                                        mention,
                                        payout - betAmount

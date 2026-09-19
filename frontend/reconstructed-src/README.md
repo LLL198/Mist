@@ -8,8 +8,8 @@
 - `api/client.js` 保留 `/api` 前缀、cookie credentials、JSON/FormData/URLSearchParams 序列化和 `{code,msg,data}` 响应封装。
 - `api/auth.js` 保留登录 471 多服务器选择和 `embyuser-*` 会话 token 规则。
 - `api/registration.js` 保留卡密注册、普通注册、邀请码注册及登录页支付下单/查单的参数映射。
-- `router/routes.js` 与 `router/guard.js` 保留登录、业务页、管理员、主管理员、分销商和菜单权限规则；部署后无需激活即可使用。
+- `router/routes.js` 与 `router/guard.js` 保留登录、业务页、管理员、主管理员、分销商和菜单权限规则。
 
 ## 交付边界
 
-这些文件是源码重建层；部署目录中的 `frontend/dist` 已通过 `node tools/remove-license-from-frontend-dist.mjs` 同步移除产品授权 UI 和 API。每次补齐一组页面后，先用 `node tools/frontend-route-smoke.mjs` 和 API 对照测试验证，再接入新的 Vite 构建。
+这些文件是源码重建层；部署目录中的 `frontend/dist` 与当前静态资源保持同步。每次补齐一组页面后，先用 `node tools/frontend-route-smoke.mjs` 和 API 对照测试验证，再接入新的 Vite 构建。

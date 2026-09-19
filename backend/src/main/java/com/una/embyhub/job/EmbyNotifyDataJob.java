@@ -130,15 +130,15 @@ public class EmbyNotifyDataJob {
                }
 
                if ("Episode".equals(embyNotifyData.getType())) {
-                  stringBuilder.append("\ud83d\udc26\u200d\ud83d\udd25 新增");
+                  stringBuilder.append("🌁 Mist · 入库完成\n新增 ");
                   stringBuilder.append(embyNotifyDataDetailsResponseData.getCount());
-                  stringBuilder.append("集 \ud83d\udc26\u200d\ud83d\udd25\n\n");
+                  stringBuilder.append(" 集\n\n");
                   stringBuilder.append(embyNotifyDataDetailsResponseData.getEpisodeList());
                }
 
                if ("Series".equals(embyNotifyData.getType())) {
-                  stringBuilder.append("\ud83d\udc26\u200d\ud83d\udd25 新增内容汇总 \ud83d\udc26\u200d\ud83d\udd25\n\n");
-                  stringBuilder.append("\ud83e\udddd\ud83c\udffb\u200d♀️ " + embyNotifyDataDetailsResponseData.getEpisodeList());
+                  stringBuilder.append("🌁 Mist · 剧集入库汇总\n\n");
+                  stringBuilder.append("📚 " + embyNotifyDataDetailsResponseData.getEpisodeList());
                }
 
                sendPhotoRequest.setTvInfo(stringBuilder.toString());
@@ -167,13 +167,13 @@ public class EmbyNotifyDataJob {
                StringBuilder wechatSb = new StringBuilder();
                String compactTvInfo = this.formatTvSeasonEpisodes(embyNotifyData.getName(), embyNotifyDataDetailsResponseData.getEpisodeList());
                if ("Episode".equals(embyNotifyData.getType())) {
-                  wechatSb.append("\ud83d\udc26\u200d\ud83d\udd25 新增");
+                  wechatSb.append("🌁 Mist · 入库完成\n新增 ");
                   wechatSb.append(embyNotifyDataDetailsResponseData.getCount());
-                  wechatSb.append("集 \ud83d\udc26\u200d\ud83d\udd25\n\n");
+                  wechatSb.append(" 集\n\n");
                   wechatSb.append(StringUtils.hasText(compactTvInfo) ? compactTvInfo : embyNotifyDataDetailsResponseData.getEpisodeList());
                } else if ("Series".equals(embyNotifyData.getType())) {
-                  wechatSb.append("\ud83d\udc26\u200d\ud83d\udd25 新增内容汇总 \ud83d\udc26\u200d\ud83d\udd25\n\n");
-                  wechatSb.append("\ud83e\udddd\ud83c\udffb\u200d♀️ ")
+                  wechatSb.append("🌁 Mist · 剧集入库汇总\n\n");
+                  wechatSb.append("📚 ")
                      .append(StringUtils.hasText(compactTvInfo) ? compactTvInfo : embyNotifyDataDetailsResponseData.getEpisodeList());
                }
 

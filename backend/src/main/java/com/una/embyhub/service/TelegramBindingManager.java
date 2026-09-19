@@ -3,6 +3,8 @@ package com.una.embyhub.service;
 import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
 import com.una.embyhub.config.common.exception.BizException;
 import com.una.embyhub.config.common.utils.RedisLockUtils;
+import com.una.embyhub.config.common.telegrambot.TelegramBotPermission;
+import com.una.embyhub.config.common.telegrambot.TelegramBotAuthorizationService;
 import com.una.embyhub.mapper.EmbyUserMapper;
 import com.una.embyhub.mapper.UserOauthBindingMapper;
 import com.una.embyhub.model.entity.BaseEntity;
@@ -27,6 +29,8 @@ public class TelegramBindingManager {
    private final EmbyUserMapper embyUserMapper;
    private final UserOauthBindingMapper userOauthBindingMapper;
    private final RedisLockUtils redisLockUtils;
+   private final EmbyUserService embyUserService;
+   private final TelegramBotAuthorizationService telegramBotAuthorizationService;
 
    public EmbyUser findUsableUser(Long userId) {
       EmbyUser user = this.findUser(userId);
@@ -96,6 +100,15 @@ public class TelegramBindingManager {
       }
    }
 
+   public void syncPanelAdminFromKkPermission(Long telegramUserId) {
+      if (telegramUserId != null) {
+         EmbyUser boundUser = this.findBoundUser(telegramUserId, false);
+         if (boundUser != null) {
+            this.syncPanelAdminFromKkPermission(telegramUserId, boundUser.getId());
+         }
+      }
+   }
+
    private String normalizeTelegramUsername(String telegramUsername) {
       if (!StringUtils.hasText(telegramUsername)) {
          return null;
@@ -153,6 +166,7 @@ public class TelegramBindingManager {
             }
 
             this.upsertBinding(embyUser, telegramUserId, telegramUsername, telegramAvatar, allowReplaceCurrentUserBinding);
+            this.syncPanelAdminFromKkPermission(telegramUserId, embyUser.getId());
             var10 = embyUser;
          } finally {
             this.redisLockUtils.unlock(userLockKey, userLockToken);
@@ -188,6 +202,7 @@ public class TelegramBindingManager {
                }
 
                this.replaceBinding(embyUser, expectedOldTelegramUserId, newTelegramUserId, newTelegramUsername, newTelegramAvatar);
+               this.syncPanelAdminFromKkPermission(newTelegramUserId, embyUser.getId());
                var10 = embyUser;
             } finally {
                this.redisLockUtils.unlock(userLockKey, userLockToken);
@@ -304,6 +319,17 @@ public class TelegramBindingManager {
       }
    }
 
+   private void syncPanelAdminFromKkPermission(Long telegramUserId, Long userId) {
+      if (telegramUserId != null
+         && userId != null
+         && this.telegramBotAuthorizationService.hasPermission(telegramUserId, TelegramBotPermission.USER_VIEW)) {
+         EmbyUser target = this.findUser(userId);
+         if (target != null && !Integer.valueOf(1).equals(target.getIsPrimaryAdmin())) {
+            this.embyUserService.updateUserAdminByBot(userId, 1, true);
+         }
+      }
+   }
+
    @Transactional(
       rollbackFor = {Exception.class}
    )
@@ -356,9 +382,17 @@ public class TelegramBindingManager {
    }
 
    @Generated
-   public TelegramBindingManager(final EmbyUserMapper embyUserMapper, final UserOauthBindingMapper userOauthBindingMapper, final RedisLockUtils redisLockUtils) {
+   public TelegramBindingManager(
+      final EmbyUserMapper embyUserMapper,
+      final UserOauthBindingMapper userOauthBindingMapper,
+      final RedisLockUtils redisLockUtils,
+      final EmbyUserService embyUserService,
+      final TelegramBotAuthorizationService telegramBotAuthorizationService
+   ) {
       this.embyUserMapper = embyUserMapper;
       this.userOauthBindingMapper = userOauthBindingMapper;
       this.redisLockUtils = redisLockUtils;
+      this.embyUserService = embyUserService;
+      this.telegramBotAuthorizationService = telegramBotAuthorizationService;
    }
 }

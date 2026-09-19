@@ -83,6 +83,8 @@ public interface EmbyUserService extends IService<EmbyUser> {
 
    void updateUserAdmin(Long userId, Integer isAdmin);
 
+   void updateUserAdminByBot(Long userId, Integer isAdmin, boolean owner);
+
    void assertCurrentUserCanManageAdministrators();
 
    void assertUserCanBeManaged(Long userId);
@@ -98,6 +100,8 @@ public interface EmbyUserService extends IService<EmbyUser> {
    void enableUserByBot(Long userId, boolean owner);
 
    void disableUserByBot(Long userId, boolean owner);
+
+   void deleteUserByBot(Long userId, boolean owner) throws ApiException;
 
    void updateUserWhitelistByBot(Long userId, boolean whitelist, Integer ordinaryDays, boolean owner);
 

@@ -19,6 +19,7 @@ import com.una.embyhub.model.entity.NotifyChannel;
 import com.una.embyhub.pointsbot.service.PointsBotConfigRules;
 import com.una.embyhub.pointsbot.service.PointsBotGameConfigService;
 import com.una.embyhub.service.NotifyChannelService;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -91,7 +92,11 @@ public class NotifyChannelServiceImpl extends ServiceImpl<NotifyChannelMapper, N
             notifyChannel.setCustomIcon(existing.getCustomIcon());
          }
 
-         notifyChannel.setParams(this.normalizeAndValidateParams(notifyChannel.getIconType(), notifyChannel.getParams()));
+         String normalizedParams = this.normalizeAndValidateParams(notifyChannel.getIconType(), notifyChannel.getParams());
+         if ("telegram".equals(notifyChannel.getIconType()) && existing != null) {
+            normalizedParams = this.preserveWhitelistGiftTemplateConfig(existing.getParams(), normalizedParams);
+         }
+         notifyChannel.setParams(normalizedParams);
          this.updateById(notifyChannel);
          if (clearTelegramStartImage) {
             this.lambdaUpdate().eq(NotifyChannel::getId, notifyChannelUpdate.getId()).set(NotifyChannel::getCustomIcon, null).update();
@@ -100,6 +105,106 @@ public class NotifyChannelServiceImpl extends ServiceImpl<NotifyChannelMapper, N
 
          this.notifyChannelCacheLoaderUtils.loadConfigCache();
       }
+   }
+
+   @Override
+   public synchronized boolean grantTelegramBotPermission(String telegramId, String name, TelegramBotPermission permission) {
+      if (!StringUtils.hasText(telegramId) || permission == null) {
+         throw this.badRequest("Telegram ID 或授权权限无效");
+      }
+
+      NotifyChannel channel = this.lambdaQuery().eq(NotifyChannel::getIconType, "telegram").eq(NotifyChannel::getEnabled, Integer.valueOf(1)).one();
+      if (channel == null) {
+         throw this.badRequest("Telegram 通知渠道尚未启用");
+      }
+
+      JSONObject params = StringUtils.hasText(channel.getParams()) ? JSONObject.parseObject(channel.getParams()) : new JSONObject();
+      if (params == null) {
+         params = new JSONObject();
+      }
+
+      TelegramResponse telegram = params.toJavaObject(TelegramResponse.class);
+      long ownerId = this.parsePositiveTelegramId(telegram.getBotChatId(), "Owner Telegram ID");
+      long targetId = this.parsePositiveTelegramId(telegramId, "管理员 Telegram ID");
+      if (targetId == ownerId) {
+         throw this.badRequest("Owner 已拥有全部权限，无需重复授权");
+      }
+
+      List<TelegramBotAdminConfig> admins = telegram.getBotAdmins();
+      if (admins == null) {
+         admins = new ArrayList<>();
+         telegram.setBotAdmins(admins);
+      }
+
+      TelegramBotAdminConfig target = admins.stream()
+         .filter(admin -> admin != null && String.valueOf(targetId).equals(StringUtils.trimWhitespace(admin.getTelegramId())))
+         .findFirst()
+         .orElse(null);
+      boolean changed = false;
+      if (target == null) {
+         target = new TelegramBotAdminConfig();
+         target.setTelegramId(String.valueOf(targetId));
+         target.setName(StringUtils.hasText(name) ? name.trim() : String.valueOf(targetId));
+         target.setPermissions(new ArrayList<>(List.of(permission.name())));
+         admins.add(target);
+         changed = true;
+      } else {
+         if (StringUtils.hasText(name) && !name.trim().equals(target.getName())) {
+            target.setName(name.trim());
+            changed = true;
+         }
+         List<String> permissions = target.getPermissions();
+         if (permissions == null) {
+            permissions = new ArrayList<>();
+            target.setPermissions(permissions);
+         }
+         if (!permissions.stream().anyMatch(permission.name()::equalsIgnoreCase)) {
+            permissions.add(permission.name());
+            changed = true;
+         }
+      }
+
+      if (changed) {
+         channel.setParams(this.normalizeAndValidateParams(channel.getIconType(), JSONObject.from(telegram).toJSONString()));
+         this.updateById(channel);
+         this.notifyChannelCacheLoaderUtils.loadConfigCache();
+      }
+
+      return changed;
+   }
+
+   @Override
+   public synchronized boolean revokeTelegramBotPermissions(String telegramId) {
+      long targetId = this.parsePositiveTelegramId(telegramId, "管理员 Telegram ID");
+      NotifyChannel channel = this.lambdaQuery().eq(NotifyChannel::getIconType, "telegram").eq(NotifyChannel::getEnabled, Integer.valueOf(1)).one();
+      if (channel == null) {
+         throw this.badRequest("Telegram 通知渠道尚未启用");
+      }
+
+      JSONObject params = StringUtils.hasText(channel.getParams()) ? JSONObject.parseObject(channel.getParams()) : new JSONObject();
+      if (params == null) {
+         params = new JSONObject();
+      }
+
+      TelegramResponse telegram = params.toJavaObject(TelegramResponse.class);
+      long ownerId = this.parsePositiveTelegramId(telegram.getBotChatId(), "Owner Telegram ID");
+      if (targetId == ownerId) {
+         throw this.badRequest("Owner 不能被撤销授权");
+      }
+
+      List<TelegramBotAdminConfig> admins = telegram.getBotAdmins();
+      if (admins == null || admins.isEmpty()) {
+         return false;
+      }
+
+      boolean changed = admins.removeIf(admin -> admin != null && String.valueOf(targetId).equals(StringUtils.trimWhitespace(admin.getTelegramId())));
+      if (changed) {
+         channel.setParams(this.normalizeAndValidateParams(channel.getIconType(), JSONObject.from(telegram).toJSONString()));
+         this.updateById(channel);
+         this.notifyChannelCacheLoaderUtils.loadConfigCache();
+      }
+
+      return changed;
    }
 
    @Override
@@ -216,6 +321,22 @@ public class NotifyChannelServiceImpl extends ServiceImpl<NotifyChannelMapper, N
       }
 
       return JSONObject.toJSONString(params);
+   }
+
+   private String preserveWhitelistGiftTemplateConfig(String previousRawParams, String normalizedRawParams) {
+      JSONObject previous = StringUtils.hasText(previousRawParams) ? JSONObject.parseObject(previousRawParams) : null;
+      JSONObject current = StringUtils.hasText(normalizedRawParams) ? JSONObject.parseObject(normalizedRawParams) : null;
+      if (previous == null || current == null) {
+         return normalizedRawParams;
+      }
+
+      for (String key : List.of("whitelistGiftTemplateMode", "whitelistGiftTemplates", "whitelistGiftAdminTemplates")) {
+         if (!current.containsKey(key) && previous.containsKey(key)) {
+            current.put(key, previous.get(key));
+         }
+      }
+
+      return current.toJSONString();
    }
 
    private void validateTelegramAdmins(JSONObject params) {

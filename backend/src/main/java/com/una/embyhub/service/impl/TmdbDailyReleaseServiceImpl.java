@@ -662,7 +662,7 @@ public class TmdbDailyReleaseServiceImpl extends ServiceImpl<TmdbDailyReleaseMap
    private String buildTelegramCaption(LocalDate date, List<TmdbDailyRelease> rows) {
       int movieCount = (int)rows.stream().filter(row -> "movie".equals(row.getMediaType())).count();
       int tvCount = (int)rows.stream().filter(row -> "tv".equals(row.getMediaType())).count();
-      return "\ud83c\udfac 追新日历 " + date.format(DATE_FORMATTER) + "\n\ud83c\udf7f 电影 " + movieCount + " / \ud83d\udcfa 剧集 " + tvCount;
+      return "🌁 Mist · 每日上映 / 播出 " + date.format(DATE_FORMATTER) + "\n🎬 电影 " + movieCount + " / 📺 剧集 " + tvCount;
    }
 
    private String formatTextList(List<TmdbDailyRelease> rows) {

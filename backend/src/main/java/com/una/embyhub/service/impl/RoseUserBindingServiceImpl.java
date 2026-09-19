@@ -608,7 +608,7 @@ public class RoseUserBindingServiceImpl extends ServiceImpl<RoseUserBindingMappe
       message.append("\ud83c\udf39 Rose到期删除自动解绑失败\n\n");
       message.append("\ud83d\udc64 用户：").append(this.safeUserName(user)).append("\n");
       if (user != null && user.getId() != null) {
-         message.append("\ud83c\udd94 Foam用户ID：").append(user.getId()).append("\n");
+         message.append("🌁 Mist 用户ID：").append(user.getId()).append("\n");
       }
 
       if (user != null && StringUtils.hasText(user.getEmbyUserId())) {

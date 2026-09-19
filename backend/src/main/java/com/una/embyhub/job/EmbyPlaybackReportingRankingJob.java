@@ -550,9 +550,9 @@ public class EmbyPlaybackReportingRankingJob {
       int y = panelY + 52;
       g.setFont(h1);
       g.setColor(new Color(0, 0, 0, 150));
-      g.drawString("Emby 今日排行榜", x + 2, y + 3);
+      g.drawString("Mist · 今日播放榜", x + 2, y + 3);
       g.setColor(Color.WHITE);
-      g.drawString("Emby 今日排行榜", x, y);
+      g.drawString("Mist · 今日播放榜", x, y);
       SimpleDateFormat fmt = new SimpleDateFormat("yyyy年MM月dd日（EEE）", Locale.CHINA);
       String dateText = fmt.format(targetDate);
       int pillUsedH = this.drawDatePill(g, dateText, x, y + 16, base.deriveFont(1, 36.0F));
