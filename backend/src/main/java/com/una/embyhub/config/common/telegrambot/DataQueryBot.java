@@ -4326,14 +4326,12 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
 
                    String grantToken = this.createKkRegistrationGrant(operatorId, targetTelegramUserId);
                    this.rememberKkRegistrationPanel(grantToken, message.getChatId(), message.getMessageId());
-                    boolean directMessageSent = this.sendKkRegistrationInvitationToTarget(target, botName, grantToken);
+                    this.sendKkRegistrationInvitationToTarget(target, botName, grantToken);
                     this.stringRedisTemplate.delete(sessionKey);
                     String confirmation = this.buildKkRegistrationGrantMessage(
                        target,
                        callbackQuery.getFrom(),
-                       operatorId,
-                       botName,
-                       directMessageSent
+                       operatorId
                     );
                     InlineKeyboardMarkup confirmationKeyboard = InlineKeyboardMarkup.builder()
                       .keyboard(
@@ -4855,9 +4853,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    private String buildKkRegistrationGrantMessage(
       DataQueryBot.TelegramKkTarget target,
       org.telegram.telegrambots.meta.api.objects.User operator,
-      long operatorId,
-      String botName,
-      boolean directMessageSent
+      long operatorId
    ) {
       String recipientMention = this.telegramUserMention(target.getTelegramUserId(), target.getDisplayName());
       String operatorMention = this.telegramUserMention(operator);
@@ -4869,12 +4865,8 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          target.getDisplayName(),
          this.telegramDisplayName(operator)
       );
-      String botMention = StringUtils.hasText(botName) && botName.startsWith("@") ? botName : "@" + botName;
-      String instruction = directMessageSent
-         ? "👉 请目标成员点击下方按钮领取开户资格。"
-         : "💬 机器人暂时无法主动私聊目标成员，请让 TA 私聊 " + this.escapeMarkdown(botMention) + "，发送 `/start` 后领取。";
       if (this.hasWhitelistGiftTemplatePlaceholder(template)) {
-         return rendered + (directMessageSent ? "" : "\n\n" + instruction);
+         return rendered;
       }
 
       return "🎁 "
@@ -4882,9 +4874,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          + " 已为 "
          + recipientMention
          + " 准备好 Mist 开户资格。\n\n"
-         + rendered
-         + "\n\n"
-         + instruction;
+         + rendered;
    }
 
    private String resolveWhitelistGiftTemplate(long operatorId) {
