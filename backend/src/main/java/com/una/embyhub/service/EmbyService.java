@@ -21,9 +21,7 @@ public interface EmbyService {
 
    StatsResponse stats();
 
-   void notifier(JSONObject data);
-
-   JSONObject clientFilterWebhook(JSONObject data);
+   void notifier(JSONObject data, VerifiedEmbyWebhook verifiedWebhook);
 
    QueryResultBaseItemDto getShowsByIdSeasons(String tvId) throws ApiException;
 

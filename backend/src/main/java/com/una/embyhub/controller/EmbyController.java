@@ -13,6 +13,8 @@ import com.una.embyhub.model.dto.response.emby.PublisherSearchResponse;
 import com.una.embyhub.model.dto.response.emby.QueryResultBaseItemResponse;
 import com.una.embyhub.model.dto.response.emby.StatsResponse;
 import com.una.embyhub.service.EmbyService;
+import com.una.embyhub.service.EmbyWebhookAuthenticator;
+import com.una.embyhub.service.VerifiedEmbyWebhook;
 import embyclient.ApiException;
 import embyclient.model.QueryResultBaseItemDto;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +25,8 @@ import lombok.Generated;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,10 +39,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping({"emby"})
 public class EmbyController {
+   private static final int MAX_WEBHOOK_BODY_BYTES = 1024 * 1024;
    @Generated
    private static final Logger log = LoggerFactory.getLogger(EmbyController.class);
    @Autowired
    private EmbyService embyService;
+   @Autowired
+   private EmbyWebhookAuthenticator embyWebhookAuthenticator;
 
    @PostMapping({"getItems"})
    public QueryResultBaseItemResponse getItems(@RequestBody GetItemsRequest getItemsRequest) throws ApiException {
@@ -51,23 +58,56 @@ public class EmbyController {
    }
 
    @PostMapping({"notifier"})
-   public void notifier(@RequestBody JSONObject data) {
-      this.embyService.notifier(data);
-   }
+   public ResponseEntity<Void> notifier(HttpServletRequest request) {
+      if (!this.embyWebhookAuthenticator.isAvailable()) {
+         log.error("拒绝处理 Emby webhook：未配置有效的 MIST_EMBY_WEBHOOK_SECRET");
+         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+      }
+      if (!this.embyWebhookAuthenticator.matches(request)) {
+         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+      }
 
-   @PostMapping({"webhook/client-filter"})
-   public JSONObject clientFilterWebhook(HttpServletRequest request) throws IOException {
-      return this.embyService.clientFilterWebhook(this.parseWebhookPayload(request));
+      try {
+         JSONObject data = this.parseWebhookPayload(request);
+         VerifiedEmbyWebhook verifiedWebhook = this.embyWebhookAuthenticator.resolve(
+            data,
+            this.embyWebhookAuthenticator.isSecretConfigured()
+         );
+         if (verifiedWebhook == null) {
+            return ResponseEntity.badRequest().build();
+         }
+         request.setAttribute(EmbyWebhookAuthenticator.REQUEST_ATTRIBUTE, verifiedWebhook);
+         this.embyService.notifier(data, verifiedWebhook);
+         return ResponseEntity.ok().build();
+      } catch (WebhookPayloadTooLargeException e) {
+         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).build();
+      } catch (Exception e) {
+         log.warn("拒绝处理格式无效的 Emby webhook: {}", e.getClass().getSimpleName());
+         return ResponseEntity.badRequest().build();
+      }
    }
 
    private JSONObject parseWebhookPayload(HttpServletRequest request) throws IOException {
+      if (request.getContentLengthLong() > MAX_WEBHOOK_BODY_BYTES) {
+         throw new WebhookPayloadTooLargeException();
+      }
       String formData = request.getParameter("data");
       if (StringUtils.hasText(formData)) {
+         if (formData.length() > MAX_WEBHOOK_BODY_BYTES) {
+            throw new WebhookPayloadTooLargeException();
+         }
          return JSONObject.parseObject(formData);
       } else {
-         String body = new String(request.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+         byte[] bodyBytes = request.getInputStream().readNBytes(MAX_WEBHOOK_BODY_BYTES + 1);
+         if (bodyBytes.length > MAX_WEBHOOK_BODY_BYTES) {
+            throw new WebhookPayloadTooLargeException();
+         }
+         String body = new String(bodyBytes, StandardCharsets.UTF_8);
          return StringUtils.hasText(body) ? JSONObject.parseObject(body) : new JSONObject();
       }
+   }
+
+   private static final class WebhookPayloadTooLargeException extends IOException {
    }
 
    @PostMapping({"getShowsByIdSeasons"})

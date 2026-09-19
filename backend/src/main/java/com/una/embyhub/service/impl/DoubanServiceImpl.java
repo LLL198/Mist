@@ -16,13 +16,13 @@ import com.una.embyhub.model.dto.response.douban.DoubanSimpleSubjectResponse;
 import com.una.embyhub.model.dto.response.douban.DoubanSubjectResponse;
 import com.una.embyhub.model.dto.response.douban.DoubanTmdbDetailResponse;
 import com.una.embyhub.service.DoubanService;
+import com.una.embyhub.service.DoubanImageProxyService;
 import com.una.embyhub.service.EmbyApiClientService;
 import com.una.embyhub.service.TmdbService;
 import info.movito.themoviedbapi.model.find.FindResults;
 import info.movito.themoviedbapi.tools.TmdbException;
 import info.movito.themoviedbapi.tools.model.time.ExternalSource;
 import jakarta.annotation.PostConstruct;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -37,9 +37,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.CacheControl;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -70,6 +67,8 @@ public class DoubanServiceImpl implements DoubanService {
    private FoamTmdbController foamTmdbController;
    @Autowired
    private EmbyApiClientService embyApiClientService;
+   @Autowired
+   private DoubanImageProxyService doubanImageProxyService;
    @Value("${douban.cookie:}")
    private String doubanCookie;
    @Value("${douban.enrich.concurrency:4}")
@@ -213,43 +212,7 @@ public class DoubanServiceImpl implements DoubanService {
 
    @Override
    public ResponseEntity<byte[]> proxyImage(String imageUrl) {
-      if (!StringUtils.hasText(imageUrl)) {
-         throw new BizException(ResponseStatusEnum.BAD_REQUEST.getCode(), "图片地址不能为空");
-      } else {
-         URI uri;
-         try {
-            uri = URI.create(imageUrl);
-         } catch (IllegalArgumentException var10) {
-            throw new BizException(ResponseStatusEnum.BAD_REQUEST.getCode(), "图片地址不合法");
-         }
-
-         if (!this.isAllowedHost(uri.getHost())) {
-            throw new BizException(ResponseStatusEnum.BAD_REQUEST.getCode(), "仅支持豆瓣图片代理");
-         } else {
-            HttpResponse response = this.withDefaultHeaders(HttpRequest.get(uri.toString())).timeout(10000).execute();
-
-            ResponseEntity var6;
-            try {
-               if (!response.isOk()) {
-                  log.warn("豆瓣图片代理失败, status:{}, body:{}", response.getStatus(), response.body());
-                  throw new BizException(ResponseStatusEnum.SYSTEM_ERROR.getCode(), "豆瓣图片获取失败");
-               }
-
-               HttpHeaders headers = new HttpHeaders();
-               headers.setCacheControl(CacheControl.noCache());
-               String contentType = response.header("Content-Type");
-               if (StringUtils.hasText(contentType)) {
-                  headers.set("Content-Type", contentType);
-               }
-
-               var6 = new ResponseEntity<>(response.bodyBytes(), headers, HttpStatus.OK);
-            } finally {
-               response.close();
-            }
-
-            return var6;
-         }
-      }
+      return this.doubanImageProxyService.proxy(imageUrl);
    }
 
    private JSONObject executeGet(String url, Map<String, Object> params) {
@@ -462,15 +425,6 @@ public class DoubanServiceImpl implements DoubanService {
             Matcher textMatcher = IMDB_ID_TEXT_PATTERN.matcher(body);
             return textMatcher.find() ? textMatcher.group(1) : null;
          }
-      }
-   }
-
-   private boolean isAllowedHost(String host) {
-      if (!StringUtils.hasText(host)) {
-         return false;
-      } else {
-         String normalizedHost = host.toLowerCase();
-         return normalizedHost.endsWith("doubanio.com") || normalizedHost.endsWith("douban.com");
       }
    }
 

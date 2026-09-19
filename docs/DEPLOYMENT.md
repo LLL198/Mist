@@ -44,6 +44,8 @@ HTTP_PROXY=
 HTTPS_PROXY=
 NO_PROXY=localhost,127.0.0.1,db,redis,mist-api
 EMBY_HUB_SEARCH_URL=
+MIST_EMBY_WEBHOOK_SECRET=
+MIST_EMBY_WEBHOOK_ALLOW_UNSIGNED=true
 ```
 
 将 MySQL 和 Redis 密码替换为自己的强密码。保管好 `.env`，不要公开上传。
@@ -58,6 +60,8 @@ EMBY_HUB_SEARCH_URL=
 | `HTTP_PROXY_ENABLED` | 是否启用 HTTP 代理 |
 | `HTTP_PROXY`、`HTTPS_PROXY` | 代理地址 |
 | `NO_PROXY` | 不经过代理的主机，保留容器内部服务名 |
+| `MIST_EMBY_WEBHOOK_SECRET` | Emby Webhook 共享密钥，至少 32 个字符；配置后会强制校验 |
+| `MIST_EMBY_WEBHOOK_ALLOW_UNSIGNED` | 未配置密钥时是否兼容接收普通 Webhook；默认 `true`，但不会执行客户端/地区自动封禁 |
 
 容器中的 `127.0.0.1` 指向容器自身，代理地址需填写容器能够访问的主机地址。
 
@@ -73,7 +77,27 @@ proxy_pass http://mist-api:8080/;
 proxy_pass http://mist-api:8080/avatars/;
 ```
 
-保留其他配置，通过下一步构建镜像使修改生效。
+保留其他配置，通过下一步构建镜像使修改生效。Emby Webhook 应配置为：
+
+```text
+https://你的域名/api/emby/notifier?secret=与 MIST_EMBY_WEBHOOK_SECRET 相同的值
+```
+
+如果不配置密钥，可以直接使用：
+
+```text
+https://你的域名/api/emby/notifier
+```
+
+无密钥模式只处理普通通知，不执行客户端/地区自动封禁。配置密钥后，建议改用请求头 `X-Mist-Webhook-Secret`，并将 `MIST_EMBY_WEBHOOK_ALLOW_UNSIGNED=false`；旧的 `/api/emby/webhook/client-filter` 路径已停用。缺少 `Server.Id` 或服务器未在 Mist 中登记时，请求仍会被拒绝。
+
+修改 `.env` 后重新创建 API 容器使配置生效：
+
+```bash
+docker compose -f docker-compose.mist.yml up -d --build mist-api
+```
+
+个人或内网临时部署可以保留无密钥兼容模式；公网部署建议填写随机的 32 位以上密钥，并将 `MIST_EMBY_WEBHOOK_ALLOW_UNSIGNED` 设为 `false`。
 
 ## 4. 启动与首次使用
 

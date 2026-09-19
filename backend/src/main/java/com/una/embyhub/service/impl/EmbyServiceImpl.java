@@ -67,6 +67,8 @@ import com.una.embyhub.service.MediaMainService;
 import com.una.embyhub.service.MediaViewDetailService;
 import com.una.embyhub.service.RequestListService;
 import com.una.embyhub.service.TmdbService;
+import com.una.embyhub.service.EmbyWebhookAuthenticator;
+import com.una.embyhub.service.VerifiedEmbyWebhook;
 import com.una.embyhub.util.MovieCardRenderer;
 import embyclient.ApiClient;
 import embyclient.ApiException;
@@ -90,7 +92,6 @@ import info.movito.themoviedbapi.model.tv.series.TvSeriesDb;
 import info.movito.themoviedbapi.tools.TmdbException;
 import info.movito.themoviedbapi.tools.model.time.ExternalSource;
 import jakarta.annotation.PreDestroy;
-import jakarta.servlet.http.HttpServletRequest;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
@@ -594,12 +595,21 @@ public class EmbyServiceImpl implements EmbyService {
    }
 
    @Override
-   public void notifier(JSONObject data) {
+   public void notifier(JSONObject data, VerifiedEmbyWebhook verifiedWebhook) {
+      if (verifiedWebhook == null) {
+         log.warn("拒绝处理未绑定 Emby 服务器身份的 webhook");
+         return;
+      }
+      ServletRequestAttributes requestAttributes = (ServletRequestAttributes)RequestContextHolder.getRequestAttributes();
+      if (requestAttributes != null) {
+         requestAttributes.getRequest().setAttribute(EmbyWebhookAuthenticator.REQUEST_ATTRIBUTE, verifiedWebhook);
+      }
       LibraryNewRequest libraryNewRequest = JSONObject.parseObject(JSONObject.toJSONString(data), LibraryNewRequest.class);
-      log.info("emby webhook 请求对象：{}", data);
       String event = data.getString("Event");
-      log.info("emby webhook 通知接口：{}", event);
-      this.clientFilterWebhook(data);
+      log.info("emby webhook 通知接口：{} serverId={}", event, verifiedWebhook.serverId());
+      if (verifiedWebhook.authenticatedBySecret()) {
+         this.clientFilterWebhook(data);
+      }
       EmbyInfo payloadEmbyInfo = this.resolveWebhookEmbyInfo(data);
       Long embyInfoId = payloadEmbyInfo != null ? payloadEmbyInfo.getId() : this.resolveWebhookEmbyInfoId(data);
       EmbyInfoCacheManagerUtils.EmbyServerConfig serverConfig = this.resolveWebhookServerConfig(payloadEmbyInfo, embyInfoId);
@@ -1442,9 +1452,12 @@ public class EmbyServiceImpl implements EmbyService {
       }
    }
 
-   @Override
-   public JSONObject clientFilterWebhook(JSONObject data) {
+   private JSONObject clientFilterWebhook(JSONObject data) {
       try {
+         VerifiedEmbyWebhook verifiedWebhook = this.currentVerifiedWebhook();
+         if (verifiedWebhook == null || !verifiedWebhook.authenticatedBySecret()) {
+            return this.clientFilterResponse("skipped", "Webhook authentication required for access filters");
+         }
          if (data != null && !data.isEmpty()) {
             boolean clientFilterEnabled = this.embyBlockKeywordService.isClientFilterEnabled();
             boolean regionFilterEnabled = this.isRegionFilterEnabledSafely();
@@ -1722,6 +1735,35 @@ public class EmbyServiceImpl implements EmbyService {
       return response;
    }
 
+   private String sanitizeWebhookPayload(JSONObject data) {
+      if (data == null) {
+         return null;
+      }
+
+      try {
+         JSONObject safePayload = JSONObject.parseObject(JSON.toJSONString(data));
+         this.removeWebhookSecrets(safePayload);
+         JSONObject server = safePayload.getJSONObject("Server");
+         this.removeWebhookSecrets(server);
+         return JSON.toJSONString(safePayload);
+      } catch (Exception e) {
+         return "{\"redacted\":true}";
+      }
+   }
+
+   private void removeWebhookSecrets(JSONObject payload) {
+      if (payload == null) {
+         return;
+      }
+      payload.remove("ApiKey");
+      payload.remove("apiKey");
+      payload.remove("apikey");
+      payload.remove("AccessToken");
+      payload.remove("accessToken");
+      payload.remove("Token");
+      payload.remove("token");
+   }
+
    private Optional<String> findMatchedClientFilterPattern(String clientName, List<String> patterns) {
       if (StringUtils.hasText(clientName) && !CollectionUtils.isEmpty(patterns)) {
          String clientLower = clientName.toLowerCase(Locale.ROOT);
@@ -1805,7 +1847,7 @@ public class EmbyServiceImpl implements EmbyService {
          record.setBlockUserSuccess(this.toFlag(blockUserSuccess));
          record.setNotifySent(0);
          record.setTriggerTime(new Date());
-         record.setRawPayload(data != null ? JSON.toJSONString(data) : null);
+         record.setRawPayload(this.sanitizeWebhookPayload(data));
          this.embyClientFilterRecordService.save(record);
          return record;
       } catch (Exception var14) {
@@ -2077,7 +2119,7 @@ public class EmbyServiceImpl implements EmbyService {
       record.setBlockUserSuccess(this.toFlag(blockUserSuccess));
       record.setNotifySent(0);
       record.setTriggerTime(new Date());
-      record.setRawPayload(data != null ? JSON.toJSONString(data) : null);
+      record.setRawPayload(this.sanitizeWebhookPayload(data));
 
       try {
          this.embyClientFilterRecordService.save(record);
@@ -2349,84 +2391,34 @@ public class EmbyServiceImpl implements EmbyService {
    }
 
    private EmbyInfo resolveWebhookEmbyInfo(JSONObject data) {
-      JSONObject serverObj = data != null ? data.getJSONObject("Server") : null;
-      String serverId = serverObj != null ? serverObj.getString("Id") : null;
-      if (StringUtils.hasText(serverId)) {
-         EmbyInfo embyInfo = this.embyInfoService.getByServerId(serverId);
-         if (embyInfo != null) {
-            return embyInfo;
-         }
+      VerifiedEmbyWebhook verifiedWebhook = this.currentVerifiedWebhook();
+      if (verifiedWebhook != null && verifiedWebhook.embyInfoId() != null) {
+         return this.embyInfoService.getById(verifiedWebhook.embyInfoId());
       }
-
       return null;
    }
 
    private Long resolveWebhookEmbyInfoId(JSONObject data) {
-      Long verifiedEmbyInfoId = this.resolveVerifiedWebhookEmbyInfoId(data);
-      if (verifiedEmbyInfoId != null) {
-         return verifiedEmbyInfoId;
-      } else {
-         EmbyInfoCacheManagerUtils.EmbyServerConfig config = this.embyInfoCacheManager.getConfig();
-         return config != null ? config.id() : null;
-      }
+      return this.resolveVerifiedWebhookEmbyInfoId(data);
    }
 
    private Long resolveVerifiedWebhookEmbyInfoId(JSONObject data) {
-      EmbyInfo embyInfoByServer = this.resolveWebhookEmbyInfo(data);
-      if (embyInfoByServer != null) {
-         return embyInfoByServer.getId();
-      } else {
-         ServletRequestAttributes attributes = (ServletRequestAttributes)RequestContextHolder.getRequestAttributes();
-         if (attributes != null) {
-            String headerApiKey = this.extractApiKey(attributes.getRequest());
-            if (StringUtils.hasText(headerApiKey)) {
-               EmbyInfo embyInfo = this.embyInfoService.getByApiKey(headerApiKey);
-               if (embyInfo != null) {
-                  return embyInfo.getId();
-               }
-            }
-         }
-
-         String payloadApiKey = data != null ? data.getString("ApiKey") : null;
-         if (StringUtils.hasText(payloadApiKey)) {
-            EmbyInfo embyInfo = this.embyInfoService.getByApiKey(payloadApiKey);
-            if (embyInfo != null) {
-               return embyInfo.getId();
-            }
-         }
-
-         return null;
-      }
+      VerifiedEmbyWebhook verifiedWebhook = this.currentVerifiedWebhook();
+      return verifiedWebhook != null ? verifiedWebhook.embyInfoId() : null;
    }
 
-   private String extractApiKey(HttpServletRequest request) {
-      if (request == null) {
+   private VerifiedEmbyWebhook currentVerifiedWebhook() {
+      ServletRequestAttributes attributes = (ServletRequestAttributes)RequestContextHolder.getRequestAttributes();
+      if (attributes == null) {
          return null;
-      } else {
-         String tokenHeader = request.getHeader("X-Emby-Token");
-         if (StringUtils.hasText(tokenHeader)) {
-            return tokenHeader;
-         } else {
-            String authHeader = request.getHeader("X-Emby-Authorization");
-            if (StringUtils.hasText(authHeader)) {
-               Pattern pattern = Pattern.compile("Token=\\\"?([^,;\\\"]+)");
-               Matcher matcher = pattern.matcher(authHeader);
-               if (matcher.find()) {
-                  return matcher.group(1);
-               }
-            }
-
-            return null;
-         }
       }
+      Object value = attributes.getRequest().getAttribute(EmbyWebhookAuthenticator.REQUEST_ATTRIBUTE);
+      return value instanceof VerifiedEmbyWebhook verifiedWebhook ? verifiedWebhook : null;
    }
 
    private EmbyInfoCacheManagerUtils.EmbyServerConfig resolveWebhookServerConfig(EmbyInfo payloadEmbyInfo, Long embyInfoId) {
-      if (payloadEmbyInfo != null) {
-         return this.embyInfoCacheManager.getRequiredConfigById(payloadEmbyInfo.getId());
-      } else {
-         return embyInfoId != null ? this.embyInfoCacheManager.getRequiredConfigById(embyInfoId) : this.embyInfoCacheManager.getRequiredConfig();
-      }
+      VerifiedEmbyWebhook verifiedWebhook = this.currentVerifiedWebhook();
+      return verifiedWebhook != null ? verifiedWebhook.serverConfig() : null;
    }
 
    private String resolveServerName(EmbyInfo payloadEmbyInfo, Long embyInfoId, EmbyInfoCacheManagerUtils.EmbyServerConfig serverConfig) {

@@ -316,12 +316,20 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    private static final char[] KK_PASSWORD_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".toCharArray();
    private static final char[] KK_PASSWORD_DIGITS = "23456789".toCharArray();
    private static final SecureRandom KK_PASSWORD_RANDOM = new SecureRandom();
+   private static final String WHITELIST_CELEBRATION_RESULT = "\ud83c\udf89 恭喜 {{recipient}} 获得 {{operator}} 签出的白名单。";
    private static final List<String> WHITELIST_CELEBRATION_COPY = List.of(
-      "雾散之前，先替你留一条通往故事的路。",
-      "夜色入雾，新的故事正等你打开。",
-      "山高水远，愿你总能抵达喜欢的故事。",
-      "沿着微光穿过薄雾，去看想看的风景。",
-      "雾起有时，故事正好开始。"
+      "*长风破浪会有时，直挂云帆济沧海。*\n\n" + WHITELIST_CELEBRATION_RESULT,
+      "*会当凌绝顶，一览众山小。*\n\n" + WHITELIST_CELEBRATION_RESULT,
+      "*海内存知己，天涯若比邻。*\n\n" + WHITELIST_CELEBRATION_RESULT,
+      "*莫愁前路无知己，天下谁人不识君。*\n\n" + WHITELIST_CELEBRATION_RESULT,
+      "*山重水复疑无路，柳暗花明又一村。*\n\n" + WHITELIST_CELEBRATION_RESULT,
+      "*行到水穷处，坐看云起时。*\n\n" + WHITELIST_CELEBRATION_RESULT,
+      "*且将新火试新茶，诗酒趁年华。*\n\n" + WHITELIST_CELEBRATION_RESULT,
+      "*沉舟侧畔千帆过，病树前头万木春。*\n\n" + WHITELIST_CELEBRATION_RESULT,
+      "*星河滚烫，前路有光。*\n\n" + WHITELIST_CELEBRATION_RESULT,
+      "*云开月明，好事正当时。*\n\n" + WHITELIST_CELEBRATION_RESULT,
+      "*一程风雨，一程花开。*\n\n" + WHITELIST_CELEBRATION_RESULT,
+      "*山高水长，来日方长。*\n\n" + WHITELIST_CELEBRATION_RESULT
    );
    private static final int PAGE_SIZE = 5;
    private static final int RESOURCE_PAGE_SIZE = 5;
