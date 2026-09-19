@@ -70,7 +70,7 @@ public class TelegramBindingReviewNotifier {
          if (client == null) {
             throw new BizException("Telegram 机器人未配置，暂时无法发送验证码");
          } else {
-            String text = "\ud83e\udee7 <b>Mist 换绑验证码</b>\n\n\ud83d\udd04 正在为 Emby 账号 <b>"
+            String text = "\ud83c\udf01 <b>Mist 换绑验证码</b>\n\n\ud83d\udd04 正在为 Emby 账号 <b>"
                + this.html(embyUserName)
                + "</b> 更换绑定 Telegram。\n\n\ud83d\udd10 <b>验证码：</b><code>"
                + this.html(verificationCode)
@@ -243,7 +243,7 @@ public class TelegramBindingReviewNotifier {
                            ? "\ud83c\udf89 Telegram 绑定现已生效。"
                            : (
                               "REBIND".equals(review.getActionType())
-                                 ? "\ud83e\udee7 Telegram 换绑现已生效，新的归属已写入 Mist。"
+                                 ? "\ud83c\udf01 Telegram 换绑现已生效，新的归属已写入 Mist。"
                                  : "\ud83d\udce6 Telegram 绑定已解除，Emby 账号仍然保留。"
                            )
                      )

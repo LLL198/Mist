@@ -1,0 +1,18 @@
+{
+  "name": "Mist",
+  "short_name": "Mist",
+  "description": "Mist Web PWA",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#081526",
+  "theme_color": "#16d6c0",
+  "icons": [
+    {
+      "src": "/mist-logo.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

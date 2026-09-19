@@ -1,0 +1,10 @@
+<svg width="96" height="96" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="nhkGradient" x1="0" y1="0" x2="96" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF5F6D" />
+      <stop offset="1" stop-color="#FFC371" />
+    </linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="20" fill="url(#nhkGradient)" />
+  <text x="48" y="56" text-anchor="middle" fill="#FFFFFF" font-size="30" font-family="'Helvetica Neue', Arial, sans-serif" font-weight="700">NHK</text>
+</svg>

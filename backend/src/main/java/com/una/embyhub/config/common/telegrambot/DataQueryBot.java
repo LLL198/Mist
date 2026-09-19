@@ -304,13 +304,13 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    private static final String START_PANEL_LOGO_RESOURCE = "/img/mist.png";
    private static final String REQUEST_GUIDE_TEXT = "发送 `/request 片名` 搜索 TMDB，选择结果后点击提交求片。\n也可以使用 `@机器人 影片名` 内联搜索，体验更好；";
    private static final String REQUEST_GUIDE_AFTER_BIND_TEXT = "\ud83c\udfac 现在可以发送 `/request 片名` 搜索 TMDB 并提交求片。\n\ud83d\udca1 也可以使用 `@机器人 影片名` 内联搜索，体验更好；";
-   private static final String ADMIN_PANEL_FOREIGN_CLICK_ALERT = "\ud83c\udf2b\ufe0f 这片管理薄雾正由发起它的管理员守护哦～请让 TA 来轻轻操作吧。";
-   private static final String KK_PROTECTED_TARGET_MESSAGE = "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～";
+   private static final String ADMIN_PANEL_FOREIGN_CLICK_ALERT = "\ud83c\udf01 这片管理薄雾正由发起它的管理员守护哦～请让 TA 来轻轻操作吧。";
+   private static final String KK_PROTECTED_TARGET_MESSAGE = "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～";
    private static final char[] KK_PASSWORD_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".toCharArray();
    private static final char[] KK_PASSWORD_DIGITS = "23456789".toCharArray();
    private static final SecureRandom KK_PASSWORD_RANDOM = new SecureRandom();
    private static final List<String> WHITELIST_CELEBRATION_COPY = List.of(
-      "\ud83c\udf2b\ufe0f *星河落进薄雾，今夜的微光有了名字。*",
+      "\ud83c\udf01 *星河落进薄雾，今夜的微光有了名字。*",
       "\ud83c\udf0c *一层薄雾越过银河，替你捎来整片星光。*",
       "✨ *梦在潮汐间醒来，星空正为新的旅程亮起。*",
       "\ud83c\udf20 *流星掠过雾海，通往远方的航线悄然展开。*",
@@ -1683,13 +1683,13 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             DataQueryBot.TelegramKkTarget telegramTarget = this.resolveKkTelegramTarget(message, argument);
             if (telegramTarget != null) {
                if (this.isKkProtectedTelegramTarget(telegramTarget.getTelegramUserId())) {
-                  this.sendMessage(message.getChatId(), "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
+                  this.sendMessage(message.getChatId(), "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
                } else {
                   EmbyUser boundUser = this.telegramBindingManager.findBoundUser(telegramTarget.getTelegramUserId(), false);
                   if (boundUser == null) {
                      this.renderAdminTelegramMemberPanel(operatorId, telegramTarget, null, message.getChatId(), null);
                   } else if (this.isKkProtectedEmbyTarget(boundUser)) {
-                     this.sendMessage(message.getChatId(), "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
+                     this.sendMessage(message.getChatId(), "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
                   } else {
                      this.pendingUserEdits.put(operatorId, new DataQueryBot.PendingUserEdit(operatorId, boundUser.getId()));
                      boolean delivered = this.sendAdminUserPanelToChat(operatorId, boundUser, message.getChatId(), true);
@@ -1702,7 +1702,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             } else {
                EmbyUser target = this.resolveAdminCommandTarget(message, argument, false);
                if (target != null && this.isKkProtectedEmbyTarget(target)) {
-                  this.sendMessage(message.getChatId(), "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
+                  this.sendMessage(message.getChatId(), "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
                } else if (target != null && this.canBotOperatorViewTarget(operatorId, target)) {
                   this.pendingUserEdits.put(operatorId, new DataQueryBot.PendingUserEdit(operatorId, target.getId()));
                   boolean delivered = message.isUserMessage()
@@ -1793,7 +1793,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                      "Telegram 管理操作完成: operatorId={}, targetUserId={}, action={}", operatorId, target.getId(), whitelist ? "WHITELIST_ADD" : "WHITELIST_REMOVE"
                   );
                   String result = whitelist
-                     ? "\ud83c\udf2b\ufe0f *一层薄雾越过潮线*\n\n`"
+                     ? "\ud83c\udf01 *一层薄雾越过潮线*\n\n`"
                         + this.escapeMarkdown(target.getEmbyUserName())
                         + "` 已由 "
                         + this.telegramUserMention(message.getFrom())
@@ -1930,9 +1930,9 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    private boolean renderAdminUserPanel(long operatorId, EmbyUser target, Message panelMessage, String notice, long destinationChatId, boolean publicPanel) {
       if (target != null && this.isKkProtectedEmbyTarget(target)) {
          if (panelMessage == null) {
-            this.sendMessage(destinationChatId, "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
+            this.sendMessage(destinationChatId, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
          } else {
-            this.editStartPanelMessage(panelMessage, "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
+            this.editStartPanelMessage(panelMessage, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
          }
 
          return false;
@@ -1971,7 +1971,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          }
 
          if (publicPanel) {
-            text = text + "\n\n\ud83c\udf2b\ufe0f [管理员](tg://user?id=" + operatorId + ") 拨开这层账号薄雾，操作会在这里留下微光。";
+            text = text + "\n\n\ud83c\udf01 [管理员](tg://user?id=" + operatorId + ") 拨开这层账号薄雾，操作会在这里留下微光。";
          }
 
          if (StringUtils.hasText(notice)) {
@@ -2105,9 +2105,9 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          return false;
       } else if (this.isKkProtectedTelegramTarget(target.getTelegramUserId())) {
          if (panelMessage == null) {
-            this.sendMessage(destinationChatId, "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
+            this.sendMessage(destinationChatId, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
          } else {
-            this.editStartPanelMessage(panelMessage, "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
+            this.editStartPanelMessage(panelMessage, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
          }
 
          return false;
@@ -2160,9 +2160,9 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             }
          } else if (this.isKkProtectedEmbyTarget(boundUser)) {
             if (panelMessage == null) {
-               this.sendMessage(destinationChatId, "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
+               this.sendMessage(destinationChatId, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
             } else {
-               this.editStartPanelMessage(panelMessage, "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
+               this.editStartPanelMessage(panelMessage, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
             }
 
             return false;
@@ -2667,7 +2667,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             List<InlineKeyboardButton> pointButtons = new ArrayList<>();
             pointButtons.add(this.button("\ud83e\ude99 查询积分", "start_action:points"));
             if (this.pointsBot.isFoamBagEnabled()) {
-               pointButtons.add(this.button("\ud83c\udf2b\ufe0f 雾袋", "start_action:foambag"));
+               pointButtons.add(this.button("\ud83c\udf01 雾袋", "start_action:foambag"));
             }
 
             pointButtons.add(this.button("\ud83c\udfaf 兑换项目", "start_action:exchange"));
@@ -2725,7 +2725,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    }
 
    private String foamPanelTitle(String title) {
-      return "\ud83e\udee7 *Mist " + title + "*\n\n";
+      return "\ud83c\udf01 *Mist " + title + "*\n\n";
    }
 
    private InlineKeyboardMarkup keyboard(List<InlineKeyboardButton> buttons, int columns) {
@@ -2780,7 +2780,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       }
 
       if (permissions.contains(TelegramBotPermission.SCRATCH_RECORD_VIEW)) {
-         buttons.add(this.button("\ud83e\udee7 刮刮乐大奖记录", "start_admin:scratchwins"));
+         buttons.add(this.button("\ud83c\udf01 刮刮乐大奖记录", "start_admin:scratchwins"));
       }
 
       buttons.add(this.button("\ud83c\udfe0 返回首页", "start_panel:home"));
@@ -3607,7 +3607,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          EmbyUser exact = this.resolveAdminCommandTarget(message, input, false);
          if (exact != null && this.isKkProtectedEmbyTarget(exact)) {
             this.pendingPanelCommands.remove(operatorId, pending);
-            this.editStartPanelMessage(pending.getPanelMessage(), "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
+            this.editStartPanelMessage(pending.getPanelMessage(), "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
             return true;
          } else if (exact != null && this.canBotOperatorViewTarget(operatorId, exact)) {
             this.pendingPanelCommands.remove(operatorId, pending);
@@ -3709,7 +3709,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          long targetTelegramUserId = sessionParts.length == 2 ? this.parseTelegramId(sessionParts[1]) : 0L;
          if (operatorId > 0L && targetTelegramUserId > 0L) {
             if (callbackQuery.getFrom().getId() != operatorId) {
-               this.answerCallbackQuery(callbackQuery.getId(), "\ud83c\udf2b\ufe0f 这片管理薄雾正由发起它的管理员守护哦～请让 TA 来轻轻操作吧。");
+               this.answerCallbackQuery(callbackQuery.getId(), "\ud83c\udf01 这片管理薄雾正由发起它的管理员守护哦～请让 TA 来轻轻操作吧。");
                return;
             }
 
@@ -3721,8 +3721,8 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
 
                if (this.isKkProtectedTelegramTarget(targetTelegramUserId)) {
                   this.stringRedisTemplate.delete(sessionKey);
-                  this.answerCallbackQuery(callbackQuery.getId(), "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
-                  this.editStartPanelMessage(message, "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
+                  this.answerCallbackQuery(callbackQuery.getId(), "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
+                  this.editStartPanelMessage(message, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
                   return;
                }
 
@@ -3735,7 +3735,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                   try {
                      this.telegramClient.execute(DeleteMessage.builder().chatId(message.getChatId()).messageId(message.getMessageId()).build());
                   } catch (TelegramApiException var22) {
-                     this.editStartPanelMessage(message, "\ud83c\udf2b\ufe0f 这片管理薄雾已经轻轻散去。", null);
+                     this.editStartPanelMessage(message, "\ud83c\udf01 这片管理薄雾已经轻轻散去。", null);
                   }
 
                   return;
@@ -3746,9 +3746,9 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                   if (boundUser != null) {
                      this.stringRedisTemplate.delete(sessionKey);
                      if (this.isKkProtectedEmbyTarget(boundUser)) {
-                        this.editStartPanelMessage(message, "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
+                        this.editStartPanelMessage(message, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
                      } else {
-                        this.renderAdminUserPanel(operatorId, boundUser, message, "\ud83e\udee7 这位成员已经关联 Mist 账号，已切换到账号面板。");
+                        this.renderAdminUserPanel(operatorId, boundUser, message, "\ud83c\udf01 这位成员已经关联 Mist 账号，已切换到账号面板。");
                      }
 
                      return;
@@ -3776,7 +3776,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                            ? "\ud83d\udce8 领取入口已经发送到目标用户私聊。"
                            : "\ud83d\udcac 机器人暂时无法主动私聊目标用户，请让 TA 私聊 " + this.escapeMarkdown(normalizedBotName) + " 并发送 `/start` 领取。"
                      )
-                     + "\n\n\ud83e\udee7 本提示将在 60 秒后自动收起。";
+                     + "\n\n\ud83c\udf01 本提示将在 60 秒后自动收起。";
                   this.editStartPanelMessage(message, confirmation, null);
                   this.scheduleGroupMessageCleanup(message.getChatId(), message.getMessageId(), 60L, TimeUnit.SECONDS);
                   return;
@@ -3880,7 +3880,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       if (callbackQuery.getMessage() instanceof Message message && callbackQuery.getFrom() != null && callbackQuery.getFrom().getId() != null) {
          boolean privatePanel = message.isUserMessage();
          if (privatePanel && !callbackQuery.getFrom().getId().equals(message.getChatId())) {
-            this.answerCallbackQuery(callbackQuery.getId(), "\ud83c\udf2b\ufe0f 这片管理薄雾正由发起它的管理员守护哦～请让 TA 来轻轻操作吧。");
+            this.answerCallbackQuery(callbackQuery.getId(), "\ud83c\udf01 这片管理薄雾正由发起它的管理员守护哦～请让 TA 来轻轻操作吧。");
             return;
          }
 
@@ -3919,7 +3919,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          long targetUserId = this.parseTelegramId(sessionParts[1]);
          if (sessionOperator != operatorId) {
             log.warn("拒绝非法 Telegram 管理面板回调: operatorId={}, token={}", operatorId, token);
-            this.answerCallbackQuery(callbackQuery.getId(), "\ud83c\udf2b\ufe0f 这片管理薄雾正由发起它的管理员守护哦～请让 TA 来轻轻操作吧。");
+            this.answerCallbackQuery(callbackQuery.getId(), "\ud83c\udf01 这片管理薄雾正由发起它的管理员守护哦～请让 TA 来轻轻操作吧。");
             return;
          }
 
@@ -3942,7 +3942,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             EmbyUser target = this.embyUserService.getById(Long.valueOf(targetUserId));
             if (target != null && this.isKkProtectedEmbyTarget(target)) {
                this.stringRedisTemplate.delete(sessionKey);
-               this.editStartPanelMessage(message, "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
+               this.editStartPanelMessage(message, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
                return;
             }
 
@@ -3965,7 +3965,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                      if (message.hasPhoto()) {
                         this.editStartPanelMessage(message, this.foamPanelTitle("管理中心") + "这片管理薄雾已经轻轻散去。", null);
                      } else {
-                        this.editMessageTextSilently(message.getChatId(), message.getMessageId(), "\ud83c\udf2b\ufe0f 这片管理薄雾已经轻轻散去。");
+                        this.editMessageTextSilently(message.getChatId(), message.getMessageId(), "\ud83c\udf01 这片管理薄雾已经轻轻散去。");
                      }
                   }
 
@@ -4132,7 +4132,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             } else if (targetTelegramUserId == operatorId) {
                throw new BizException("不能对自己执行这项群管理操作");
             } else if (this.isKkProtectedTelegramTarget(targetTelegramUserId)) {
-               throw new BizException("\ud83e\udee7 这位伙伴暂时不开放这项操作哦～");
+               throw new BizException("\ud83c\udf01 这位伙伴暂时不开放这项操作哦～");
             } else {
                return targetTelegramUserId;
             }
@@ -4151,7 +4151,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          } else if (targetTelegramUserId == operatorId) {
             throw new BizException("不能对自己执行这项群成员操作");
          } else if (this.isKkProtectedTelegramTarget(targetTelegramUserId)) {
-            throw new BizException("\ud83e\udee7 这位伙伴暂时不开放这项操作哦～");
+            throw new BizException("\ud83c\udf01 这位伙伴暂时不开放这项操作哦～");
          } else {
             return targetTelegramUserId;
          }
@@ -4216,7 +4216,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             case "unwhite90" -> "\ud83c\udf0a " + actor + " 让潮汐轻落，账号已移出白名单，普通账号有效期重置为 90 天。";
             case "kickban" -> "\ud83c\udf19 " + actor + " 轻轻合上群门，" + target + " 已被移出并封禁。";
             case "unmute" -> "\ud83c\udf24️ " + actor + " 轻轻解开静音结，目标成员已经可以重新说话。";
-            default -> "\ud83e\udee7 " + actor + " 的操作已完成，水面留下了一圈清晰的涟漪。";
+            default -> "\ud83c\udf01 " + actor + " 的操作已完成，水面留下了一圈清晰的涟漪。";
          };
       } else {
          return switch (action) {
@@ -4239,7 +4239,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
 
    private String buildWhitelistCelebrationMessage(String recipientMention, String operatorMention) {
       String opening = WHITELIST_CELEBRATION_COPY.get(ThreadLocalRandom.current().nextInt(WHITELIST_CELEBRATION_COPY.size()));
-      return opening + "\n\n\ud83c\udf89 恭喜 " + recipientMention + "，获得 " + operatorMention + " 送出的白名单。\n\n\ud83c\udf2b\ufe0f 愿薄雾托住所有期待，往后的观影时光都有星光与好故事相伴。";
+      return opening + "\n\n\ud83c\udf89 恭喜 " + recipientMention + "，获得 " + operatorMention + " 送出的白名单。\n\n\ud83c\udf01 愿薄雾托住所有期待，往后的观影时光都有星光与好故事相伴。";
    }
 
    private String telegramBoundUserMention(long chatId, EmbyUser target) {
@@ -4282,7 +4282,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       EmbyUser target = this.embyUserService.getById(Long.valueOf(targetUserId));
       if (target != null && this.isKkProtectedEmbyTarget(target)) {
          this.pendingPanelCommands.remove(operatorId, pending);
-         this.editStartPanelMessage(pending.getPanelMessage(), "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
+         this.editStartPanelMessage(pending.getPanelMessage(), "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
          return true;
       } else if (permission != null
          && this.telegramBotAuthorizationService.hasPermission(operatorId, permission)
@@ -5404,10 +5404,10 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             this.sendMessage(chatId, "\ud83c\udf19 这份账号礼物暂时无法领取，请让发起人重新打开 `/kk` 面板。");
          } else if (this.isKkProtectedTelegramTarget(telegramUserId)) {
             this.deleteKkRegistrationGrant(token, telegramUserId);
-            this.sendMessage(chatId, "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
+            this.sendMessage(chatId, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
          } else if (this.telegramBindingManager.findBoundUser(telegramUserId, false) != null) {
             this.deleteKkRegistrationGrant(token, telegramUserId);
-            this.sendMessage(chatId, "\ud83e\udee7 你已经关联了 Mist 账号，不需要重复创建啦。");
+            this.sendMessage(chatId, "\ud83c\udf01 你已经关联了 Mist 账号，不需要重复创建啦。");
          } else if (this.telegramBindingReviewService.hasPendingReviewForTelegram(telegramUserId)) {
             this.deleteKkRegistrationGrant(token, telegramUserId);
             this.sendMessage(chatId, "\ud83d\udd52 当前还有一份绑定申请正在等待处理，请完成后再领取账号礼物。");
@@ -5437,8 +5437,8 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             if (pending != null && Objects.equals(token, pending.getToken())) {
                this.pendingKkRegistrations.remove(telegramUserId, pending);
                this.deleteKkRegistrationGrant(pending.getToken(), telegramUserId);
-               this.answerCallbackQuery(callbackQuery.getId(), "\ud83e\udee7 已取消领取。");
-               this.editStartPanelMessage(message, "\ud83e\udee7 已取消领取，这份账号礼物没有被使用。", null);
+               this.answerCallbackQuery(callbackQuery.getId(), "\ud83c\udf01 已取消领取。");
+               this.editStartPanelMessage(message, "\ud83c\udf01 已取消领取，这份账号礼物没有被使用。", null);
                return;
             }
 
@@ -5474,7 +5474,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             } else if ("/cancel".equalsIgnoreCase(input)) {
                this.pendingKkRegistrations.remove(telegramUserId, pending);
                this.deleteKkRegistrationGrant(pending.getToken(), telegramUserId);
-               this.sendMessage(chatId, "\ud83e\udee7 已取消领取，这份账号礼物没有被使用。");
+               this.sendMessage(chatId, "\ud83c\udf01 已取消领取，这份账号礼物没有被使用。");
                return true;
             } else if (input.startsWith("/")) {
                this.pendingKkRegistrations.remove(telegramUserId, pending);
@@ -5492,12 +5492,12 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                } else if (this.isKkProtectedTelegramTarget(telegramUserId)) {
                   this.pendingKkRegistrations.remove(telegramUserId, pending);
                   this.deleteKkRegistrationGrant(pending.getToken(), telegramUserId);
-                  this.sendMessage(chatId, "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
+                  this.sendMessage(chatId, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
                   return true;
                } else if (this.telegramBindingManager.findBoundUser(telegramUserId, false) != null) {
                   this.pendingKkRegistrations.remove(telegramUserId, pending);
                   this.deleteKkRegistrationGrant(pending.getToken(), telegramUserId);
-                  this.sendMessage(chatId, "\ud83e\udee7 你已经关联了 Mist 账号，不需要重复创建啦。");
+                  this.sendMessage(chatId, "\ud83c\udf01 你已经关联了 Mist 账号，不需要重复创建啦。");
                   return true;
                } else if (this.telegramBindingReviewService.hasPendingReviewForTelegram(telegramUserId)) {
                   this.sendMessage(chatId, "\ud83d\udd52 当前还有一份绑定申请正在等待处理，请完成后再继续。");
@@ -7135,9 +7135,9 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          long chatId = callbackQuery.getMessage().getChatId();
          if (user != null && this.isKkProtectedEmbyTarget(user)) {
             if (callbackQuery.getMessage() instanceof Message panelMessage) {
-               this.editStartPanelMessage(panelMessage, "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
+               this.editStartPanelMessage(panelMessage, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～", null);
             } else {
-               this.sendMessage(chatId, "\ud83e\udee7 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
+               this.sendMessage(chatId, "\ud83c\udf01 这位伙伴正被星光轻轻守护，暂时不开放查看或操作哦～");
             }
          } else if (user != null && this.canBotOperatorViewTarget(operatorId, user)) {
             this.pendingUserEdits.put(operatorId, new DataQueryBot.PendingUserEdit(operatorId, selectedUserId));

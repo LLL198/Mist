@@ -1,0 +1,11 @@
+<svg width="96" height="96" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="foxGradient" x1="0" y1="0" x2="96" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A47000" />
+      <stop offset="1" stop-color="#F4C15E" />
+    </linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="20" fill="url(#foxGradient)" />
+  <text x="48" y="46" text-anchor="middle" fill="#3A2300" font-size="34" font-family="'Helvetica Neue', Arial, sans-serif" font-weight="700">20TH</text>
+  <text x="48" y="70" text-anchor="middle" fill="#3A2300" font-size="18" font-family="'Helvetica Neue', Arial, sans-serif" font-weight="600">CENTURY</text>
+</svg>

@@ -1,0 +1,1 @@
+const n=[{title:"通用线路",value:0},{title:"白名单线路",value:1}],o=[{title:"普通线路",value:0},{title:"所有线路",value:1}];function t(e){return Number(e)===1?1:0}function s(e){return t(e)===1?"白名单线路":"通用线路"}function a(e){return t(e)===1?"所有线路":"普通线路"}export{a,n as b,s as c,o as h,t as n};

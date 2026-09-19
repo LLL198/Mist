@@ -1,0 +1,11 @@
+<svg width="96" height="96" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="universalGradient" x1="0" y1="0" x2="96" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#020E2A" />
+      <stop offset="1" stop-color="#0E3C73" />
+    </linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="20" fill="url(#universalGradient)" />
+  <circle cx="48" cy="34" r="14" stroke="#58C1FF" stroke-width="2" fill="none" />
+  <text x="48" y="66" text-anchor="middle" fill="#FFFFFF" font-size="18" font-family="'Helvetica Neue', Arial, sans-serif" font-weight="700">UNIVERSAL</text>
+</svg>

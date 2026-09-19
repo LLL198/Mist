@@ -1,0 +1,11 @@
+<svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="disneyGradient" x1="12" y1="12" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1A2980"/>
+      <stop offset="1" stop-color="#26D0CE"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="64" height="64" rx="20" fill="url(#disneyGradient)"/>
+  <path d="M23 40.2C23 33.9 28 29 35.8 29C40.7 29 44.4 30.7 47.2 34.2C50 37.6 51.5 42.4 51.5 48H47.2C47.2 44.7 46.8 42 45.9 39.8C44 35.1 40.5 32.5 35.8 32.5C30.5 32.5 27.5 35.5 27.5 40.2C27.5 44.5 30.2 47.4 34.3 48.2V51.8C27.8 50.8 23 46.3 23 40.2Z" fill="#fff" fill-opacity="0.95"/>
+  <path d="M37.2 44.8C37.2 41.6 39.5 39.3 42.6 39.3C45.7 39.3 48 41.6 48 44.8C48 48 45.7 50.3 42.6 50.3C39.5 50.3 37.2 48 37.2 44.8ZM44.9 44.8C44.9 43.3 44 42.3 42.6 42.3C41.2 42.3 40.3 43.3 40.3 44.8C40.3 46.3 41.2 47.3 42.6 47.3C44 47.3 44.9 46.3 44.9 44.8Z" fill="#fff"/>
+</svg>

@@ -1,0 +1,11 @@
+<svg width="96" height="96" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="wbGradient" x1="0" y1="0" x2="96" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0052A4" />
+      <stop offset="1" stop-color="#2DA9FF" />
+    </linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="20" fill="url(#wbGradient)" />
+  <text x="48" y="44" text-anchor="middle" fill="#FFFFFF" font-size="28" font-family="'Helvetica Neue', Arial, sans-serif" font-weight="700">WB</text>
+  <text x="48" y="70" text-anchor="middle" fill="#FFFFFF" font-size="14" font-family="'Helvetica Neue', Arial, sans-serif" font-weight="600">BROS</text>
+</svg>

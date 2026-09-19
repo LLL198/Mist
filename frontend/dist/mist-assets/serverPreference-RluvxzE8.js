@@ -1,0 +1,1 @@
+const e="foam:selected-server-id";function t(){if(typeof window>"u")return"";try{return window.localStorage.getItem(e)||""}catch{return""}}function n(r){if(!(typeof window>"u"))try{r?window.localStorage.setItem(e,r):window.localStorage.removeItem(e)}catch{}}export{t as r,n as w};

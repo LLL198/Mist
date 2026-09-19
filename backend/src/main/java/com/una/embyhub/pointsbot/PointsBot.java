@@ -555,7 +555,7 @@ public class PointsBot {
          } else {
             String levelLabel = profile.getLevelName() == null ? "未设置" : profile.getLevelName();
             String userLabel = this.formatUser(profile);
-            String reply = String.format("\ud83c\udf2b\ufe0f Mist 积分中心\n\n用户：%s\n当前积分：%d\n当前等级：%s", userLabel, profile.getPoints(), levelLabel);
+            String reply = String.format("\ud83c\udf01 Mist 积分中心\n\n用户：%s\n当前积分：%d\n当前等级：%s", userLabel, profile.getPoints(), levelLabel);
             if (this.isGroupChat(message)) {
                this.deleteMessageDelayed(chatId, message.getMessageId(), 15);
                this.sendReplyAndDelete(chatId, message.getMessageId(), reply, 15);
@@ -569,9 +569,9 @@ public class PointsBot {
    private void handleFoamBag(Message message) {
       if (this.isGroupChat(message)) {
          if (!this.isFoamBagEnabled()) {
-            this.sendReplyAndDeleteBoth(message.getChatId(), message.getMessageId(), "\ud83c\udf2b\ufe0f 当前渠道已关闭雾袋，新申请已暂停。", 15);
+            this.sendReplyAndDeleteBoth(message.getChatId(), message.getMessageId(), "\ud83c\udf01 当前渠道已关闭雾袋，新申请已暂停。", 15);
          } else {
-            this.sendReplyAndDeleteBoth(message.getChatId(), message.getMessageId(), "\ud83c\udf2b\ufe0f 雾袋包含个人积分和归还时间，请私聊机器人打开。", 15);
+            this.sendReplyAndDeleteBoth(message.getChatId(), message.getMessageId(), "\ud83c\udf01 雾袋包含个人积分和归还时间，请私聊机器人打开。", 15);
          }
       } else {
          Long pointsChatId = this.resolvePointsChatId(message);
@@ -656,7 +656,7 @@ public class PointsBot {
    private void sendFoamBagBorrowedNotice(long chatId, User user, PointsBotFoamBag record) {
       String mention = this.redPacketUserMention(user.getId(), user.getUserName(), this.displayName(user));
       this.sendFoamBagGroupNotice(
-         chatId, "\ud83c\udf2b\ufe0f " + mention + " 取出雾袋，获得 <b>" + record.getPrincipalPoints() + "</b> 积分！\n" + this.randomFoamBagBlessing(FOAM_BAG_BORROW_BLESSINGS)
+         chatId, "\ud83c\udf01 " + mention + " 取出雾袋，获得 <b>" + record.getPrincipalPoints() + "</b> 积分！\n" + this.randomFoamBagBlessing(FOAM_BAG_BORROW_BLESSINGS)
       );
    }
 
@@ -687,7 +687,7 @@ public class PointsBot {
          throw new BizException("这个雾袋积分档位已不可用，请返回刷新");
       } else {
          int repayment = Math.multiplyExact(amount, config.getRepaymentMultiplier());
-         String text = "\ud83c\udf2b\ufe0f Mist 雾袋确认\n\n\ud83c\udf81 本次获得："
+         String text = "\ud83c\udf01 Mist 雾袋确认\n\n\ud83c\udf81 本次获得："
             + amount
             + " 积分\n\ud83d\udd01 需要归还："
             + repayment
@@ -709,7 +709,7 @@ public class PointsBot {
    private void renderFoamBagPanel(long chatId, Long messageId, long pointsChatId, User user) {
       FoamBagState state = this.foamBagService.getState(pointsChatId, user.getId(), user.getUserName(), this.displayName(user));
       PointsBotFoamBagConfigResponse config = state.getConfig();
-      StringBuilder text = new StringBuilder("\ud83c\udf2b\ufe0f Mist 雾袋\n\n");
+      StringBuilder text = new StringBuilder("\ud83c\udf01 Mist 雾袋\n\n");
       List<List<TelegramBotApiClient.InlineButton>> keyboard = new ArrayList<>();
       if (state.getPenaltyUntil() != null) {
          text.append("\ud83d\udeab 当前处于逾期限制期\n")
@@ -727,7 +727,7 @@ public class PointsBot {
          text.append("\ud83d\udcb0 当前积分：")
             .append(state.getPoints())
             .append("\n")
-            .append("\ud83e\udee7 已袋积分：")
+            .append("\ud83c\udf01 已袋积分：")
             .append(active.getPrincipalPoints())
             .append("\n")
             .append("\ud83d\udd01 应归还：")
@@ -770,7 +770,7 @@ public class PointsBot {
          List<TelegramBotApiClient.InlineButton> tierRow = new ArrayList<>();
 
          for (Integer amount : config.getAmountTiers()) {
-            tierRow.add(new TelegramBotApiClient.InlineButton("\ud83e\udee7 袋 " + amount + " 积分", "foam_bag:select:" + amount));
+            tierRow.add(new TelegramBotApiClient.InlineButton("\ud83c\udf01 袋 " + amount + " 积分", "foam_bag:select:" + amount));
             if (tierRow.size() == 3) {
                keyboard.add(List.copyOf(tierRow));
                tierRow.clear();
@@ -1386,7 +1386,7 @@ public class PointsBot {
       if (prizes.isEmpty()) {
          this.sendMessage(chatId, "暂无可兑换的奖品。");
       } else {
-         StringBuilder builder = new StringBuilder("\ud83e\udee7 Mist 积分奖品\n\n");
+         StringBuilder builder = new StringBuilder("\ud83c\udf01 Mist 积分奖品\n\n");
          int index = 1;
 
          for (PointsBotPrizeConfig prize : prizes) {
@@ -1420,7 +1420,7 @@ public class PointsBot {
    private void handleExchange(Message message) {
       long chatId = message.getChatId();
       if (this.isGroupChat(message)) {
-         this.sendMessage(chatId, "\ud83e\udee7 积分兑换请在私聊服务面板中完成，账号和积分会更安静地被守护。");
+         this.sendMessage(chatId, "\ud83c\udf01 积分兑换请在私聊服务面板中完成，账号和积分会更安静地被守护。");
       } else {
          List<PointsBotRedeemConfig> configs = this.pointsBotRedeemConfigService
             .lambdaQuery()
@@ -1432,7 +1432,7 @@ public class PointsBot {
          if (configs.isEmpty()) {
             this.sendMessage(chatId, "暂无可兑换的项目。");
          } else {
-            StringBuilder builder = new StringBuilder("\ud83e\udee7 Mist 积分兑换\n\n");
+            StringBuilder builder = new StringBuilder("\ud83c\udf01 Mist 积分兑换\n\n");
             int validCount = 0;
             List<TelegramBotApiClient.InlineButton> actionButtons = new ArrayList<>();
 
@@ -3306,7 +3306,7 @@ public class PointsBot {
       long chatId = message.getChatId();
       ScratchCardGameService.JackpotPage page = this.scratchCardGameService.listJackpotRecords(chatId, null, LocalDateTime.now(), 0, 10);
       if (page.records().isEmpty()) {
-         this.sendReplyAndDeleteBoth(chatId, message.getMessageId(), "\ud83c\udf2b\ufe0f 本群暂时还没有雾中刮刮乐大奖记录。", 10);
+         this.sendReplyAndDeleteBoth(chatId, message.getMessageId(), "\ud83c\udf01 本群暂时还没有雾中刮刮乐大奖记录。", 10);
       } else {
          try {
             this.telegramGameRateLimiter.awaitMessageTurn(chatId);
@@ -3478,7 +3478,7 @@ public class PointsBot {
    }
 
    private String renderScratchWins(String title, List<PointsBotScratchEntry> records, int pageNumber, boolean showPage) {
-      StringBuilder builder = new StringBuilder("\ud83e\udee7 <b>").append(escapeTelegramHtml(title)).append("</b>\n");
+      StringBuilder builder = new StringBuilder("\ud83c\udf01 <b>").append(escapeTelegramHtml(title)).append("</b>\n");
       if (showPage) {
          builder.append("\ud83d\udcc4 第 ").append(pageNumber + 1).append(" 页\n");
       }
@@ -3571,7 +3571,7 @@ public class PointsBot {
             this.startScratchRoundTask();
             if (round.getMessageId() != null) {
                if (!this.locateActiveScratchRound(message, round)) {
-                  this.sendReplyAndDeleteBoth(chatId, message.getMessageId(), "\ud83c\udf2b\ufe0f 本群已有一轮雾中刮刮乐正在进行，请直接点击游戏面板中的雾滴。", 10);
+                  this.sendReplyAndDeleteBoth(chatId, message.getMessageId(), "\ud83c\udf01 本群已有一轮雾中刮刮乐正在进行，请直接点击游戏面板中的雾滴。", 10);
                }
             } else {
                try {
@@ -3594,7 +3594,7 @@ public class PointsBot {
    private void handleExistingScratchCard(Message triggerMessage, PointsBotScratchRound round) {
       this.startScratchRoundTask();
       if (!this.locateActiveScratchRound(triggerMessage, round)) {
-         this.sendReplyAndDeleteBoth(triggerMessage.getChatId(), triggerMessage.getMessageId(), "\ud83c\udf2b\ufe0f 本群已有一轮雾中刮刮乐正在进行，请直接点击游戏面板中的雾滴。", 10);
+         this.sendReplyAndDeleteBoth(triggerMessage.getChatId(), triggerMessage.getMessageId(), "\ud83c\udf01 本群已有一轮雾中刮刮乐正在进行，请直接点击游戏面板中的雾滴。", 10);
       }
    }
 
@@ -3611,7 +3611,7 @@ public class PointsBot {
       if (user != null && callbackMessage != null) {
          long chatId = callbackMessage.getChatId();
          if (!this.telegramGameRateLimiter.tryAcquireAction(chatId, user.getId())) {
-            this.answerScratchCallback(callbackQuery, "\ud83e\udee7 操作太快，请稍后再点", false);
+            this.answerScratchCallback(callbackQuery, "\ud83c\udf01 操作太快，请稍后再点", false);
          } else {
             String[] parts = callbackQuery.getData().split(":");
             if (parts.length != 3) {
@@ -3632,7 +3632,7 @@ public class PointsBot {
                      .join(roundId, chatId, cellNumber, user.getId(), user.getUserName(), this.displayName(user));
                   switch (result.status()) {
                      case JOINED:
-                        this.answerScratchCallback(callbackQuery, String.format("\ud83e\udee7 已占 %d 号格，扣除 %d 积分", cellNumber, 50), false);
+                        this.answerScratchCallback(callbackQuery, String.format("\ud83c\udf01 已占 %d 号格，扣除 %d 积分", cellNumber, 50), false);
                         if (result.full()) {
                            this.settleScratchCardRound(roundId);
                         } else {
@@ -3868,7 +3868,7 @@ public class PointsBot {
       PointsBotScratchRound round = view.round();
       List<PointsBotScratchEntry> entries = view.entries();
       boolean open = "OPEN".equals(round.getStatus());
-      StringBuilder builder = new StringBuilder("\ud83c\udf2b\ufe0f <b>雾中刮刮乐</b>\n\n");
+      StringBuilder builder = new StringBuilder("\ud83c\udf01 <b>雾中刮刮乐</b>\n\n");
       if (open) {
          builder.append("每格消耗：<b>")
             .append(50)
@@ -3938,7 +3938,7 @@ public class PointsBot {
             PointsBotScratchEntry entry = entriesByCell.get(cell);
             String text;
             if (open) {
-               text = entry == null ? "\ud83e\udee7 " + cell : "✅ " + cell;
+               text = entry == null ? "\ud83c\udf01 " + cell : "✅ " + cell;
             } else if (entry == null) {
                text = "▫️ " + cell;
             } else if (Boolean.TRUE.equals(entry.getJackpot())) {
