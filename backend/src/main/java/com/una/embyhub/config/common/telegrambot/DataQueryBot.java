@@ -2540,7 +2540,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          if (StringUtils.hasText(kkInviter)) {
             text = text + "\n" + "*· 🎁 邀请人* | " + this.escapeMarkdown(kkInviter);
          }
-         if (whitelist && canManageWhitelist) {
+         if (!publicPanel && whitelist && canManageWhitelist) {
             text = text + "\n\n" + MistTelegramStyle.markdownSection("白名单操作") + "↩️ 移出白名单并重置有效期";
          }
 
@@ -2583,7 +2583,9 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
 
          if (canManageWhitelist) {
             if (whitelist) {
-               rows.add(this.buildWhitelistRemovalRow(token));
+               if (!publicPanel) {
+                  rows.add(this.buildWhitelistRemovalRow(token));
+               }
             } else {
                InlineKeyboardButton whitelistButton = InlineKeyboardButton.builder().text("✅ 加入白名单").callbackData("admin_user:" + token + ":whitelist").build();
                if (publicPanel) {
