@@ -1952,6 +1952,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                   if (message.isUserMessage()) {
                      this.sendMessage(message.getChatId(), result);
                   } else {
+                     this.deleteMessageSilently(message.getChatId(), message.getMessageId());
                      this.sendPersistentMessage(
                         message.getChatId(), whitelist ? this.buildWhitelistCelebrationMessage(message.getChatId(), target, message.getFrom()) : result
                      );
