@@ -2499,6 +2499,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          EmbyInfo server = target.getEmbyInfoId() == null ? null : this.embyInfoService.getById(target.getEmbyInfoId());
          boolean canOperate = this.canBotOperatorOperateTarget(operatorId, target);
          boolean whitelist = HostLineTypeEnum.normalize(target.getHostLineType()) == HostLineTypeEnum.WHITELIST.getCode();
+         String kkInviter = this.resolveKkInviter(target);
          boolean canManageWhitelist = canOperate && this.telegramBotAuthorizationService.hasPermission(operatorId, TelegramBotPermission.USER_WHITELIST);
          String expiration = whitelist
             ? "长期有效"
@@ -2529,6 +2530,9 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             + "\n"
             + "*· 🎬 求片额度* | "
             + (target.getRequestPackagesCount() == null ? 0 : target.getRequestPackagesCount());
+         if (StringUtils.hasText(kkInviter)) {
+            text = text + "\n" + "*· 🎁 邀请人* | " + this.escapeMarkdown(kkInviter);
+         }
          if (whitelist && canManageWhitelist) {
           text = text + "\n\n" + MistTelegramStyle.markdownSection("白名单操作") + "↩️ 移出白名单并重置有效期";
           }
@@ -2639,6 +2643,36 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       }
    }
 
+   private String buildKkRegistrationRemark(DataQueryBot.PendingTelegramRegister task) {
+      String inviter = task == null ? null : task.getGrantedByTelegramUserName();
+      if (!StringUtils.hasText(inviter)) {
+         long inviterId = task == null ? 0L : task.getGrantedByTelegramUserId();
+         inviter = inviterId > 0L ? "Telegram ID " + inviterId : "未记录";
+      }
+
+      inviter = inviter.replaceAll("[\\r\\n]+", " ").trim();
+      String prefix = "Telegram /kk 赠送开户｜邀请人：";
+      int maxInviterLength = Math.max(1, 50 - prefix.length());
+      if (inviter.length() > maxInviterLength) {
+         inviter = inviter.substring(0, maxInviterLength);
+      }
+      return prefix + inviter;
+   }
+
+   private String resolveKkInviter(EmbyUser target) {
+      if (target == null || !StringUtils.hasText(target.getRemarks()) || !target.getRemarks().startsWith("Telegram /kk 赠送开户")) {
+         return null;
+      }
+
+      String marker = "邀请人：";
+      int markerIndex = target.getRemarks().indexOf(marker);
+      if (markerIndex >= 0) {
+         String inviter = target.getRemarks().substring(markerIndex + marker.length()).trim();
+         return StringUtils.hasText(inviter) ? inviter : "未记录";
+      }
+      return "未记录";
+   }
+
    private Long resolveBoundTelegramUserId(EmbyUser target) {
       if (target != null && target.getId() != null) {
          UserOauthBinding binding = this.telegramBindingManager.findBindingByUserId(target.getId());
@@ -2724,16 +2758,20 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       }
    }
 
-   private String createKkRegistrationGrant(long operatorId, long targetTelegramUserId) {
+   private String createKkRegistrationGrant(long operatorId, long targetTelegramUserId, String operatorDisplayName) {
       String token = UUID.randomUUID().toString().replace("-", "");
       String targetGrantKey = "bot:kk:register:target:" + targetTelegramUserId;
       String previousToken = this.stringRedisTemplate.opsForValue().get(targetGrantKey);
       if (StringUtils.hasText(previousToken)) {
          this.stringRedisTemplate.delete("bot:kk:register:" + previousToken);
+         this.stringRedisTemplate.delete("bot:kk:register:inviter:" + previousToken);
          this.deleteKkRegistrationPanel(previousToken);
       }
 
       this.stringRedisTemplate.opsForValue().set("bot:kk:register:" + token, operatorId + ":" + targetTelegramUserId, 30L, TimeUnit.MINUTES);
+      if (StringUtils.hasText(operatorDisplayName)) {
+         this.stringRedisTemplate.opsForValue().set("bot:kk:register:inviter:" + token, operatorDisplayName.trim(), 30L, TimeUnit.MINUTES);
+      }
       this.stringRedisTemplate.opsForValue().set(targetGrantKey, token, 30L, TimeUnit.MINUTES);
       return token;
    }
@@ -4329,7 +4367,9 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                      return;
                    }
 
-                   String grantToken = this.createKkRegistrationGrant(operatorId, targetTelegramUserId);
+                   String grantToken = this.createKkRegistrationGrant(
+                      operatorId, targetTelegramUserId, this.telegramDisplayName(callbackQuery.getFrom())
+                   );
                    this.rememberKkRegistrationPanel(grantToken, message.getChatId(), message.getMessageId());
                     this.sendKkRegistrationInvitationToTarget(target, botName, grantToken);
                     this.stringRedisTemplate.delete(sessionKey);
@@ -6241,7 +6281,8 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                               lockToken,
                               System.currentTimeMillis(),
                               true,
-                              grant.getOperatorId()
+                              grant.getOperatorId(),
+                              grant.getOperatorDisplayName()
                            );
                            this.saveTelegramRegisterTask(task);
                            this.stringRedisTemplate.opsForList().leftPush("bot:register:queue", taskId);
@@ -6296,7 +6337,10 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
             } else {
                long operatorId = this.parseTelegramId(parts[0]);
                long targetTelegramUserId = this.parseTelegramId(parts[1]);
-               return operatorId > 0L && targetTelegramUserId > 0L ? new DataQueryBot.KkRegistrationGrant(operatorId, targetTelegramUserId) : null;
+               String operatorDisplayName = this.stringRedisTemplate.opsForValue().get("bot:kk:register:inviter:" + token);
+               return operatorId > 0L && targetTelegramUserId > 0L
+                  ? new DataQueryBot.KkRegistrationGrant(operatorId, targetTelegramUserId, operatorDisplayName)
+                  : null;
             }
          }
       }
@@ -6305,6 +6349,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    private void deleteKkRegistrationGrant(String token, long targetTelegramUserId) {
       if (StringUtils.hasText(token)) {
          this.stringRedisTemplate.delete("bot:kk:register:" + token);
+         this.stringRedisTemplate.delete("bot:kk:register:inviter:" + token);
          this.deleteKkRegistrationPanel(token);
       }
 
@@ -6698,7 +6743,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          save.setEmbyUserName(task.getEmbyUserName());
          save.setEmbyUserPassword(task.getRawPassword());
          save.setUserStatus(0);
-         save.setRemarks(giftedByKk ? "Telegram /kk 赠送开户" : "Telegram注册");
+         save.setRemarks(giftedByKk ? this.buildKkRegistrationRemark(task) : "Telegram注册");
          if (giftedByKk) {
             int defaultDays = this.resolveKkGiftRegisterDefaultDays();
             if (defaultDays > 0) {
@@ -8188,10 +8233,12 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
    private static class KkRegistrationGrant {
       private final long operatorId;
       private final long targetTelegramUserId;
+      private final String operatorDisplayName;
 
-      KkRegistrationGrant(long operatorId, long targetTelegramUserId) {
+      KkRegistrationGrant(long operatorId, long targetTelegramUserId, String operatorDisplayName) {
          this.operatorId = operatorId;
          this.targetTelegramUserId = targetTelegramUserId;
+         this.operatorDisplayName = operatorDisplayName;
       }
 
       long getOperatorId() {
@@ -8200,6 +8247,10 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
 
       long getTargetTelegramUserId() {
          return this.targetTelegramUserId;
+      }
+
+      String getOperatorDisplayName() {
+         return this.operatorDisplayName;
       }
    }
 
@@ -8422,6 +8473,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       private long createdAtMillis;
       private boolean adminGifted;
       private long grantedByTelegramUserId;
+      private String grantedByTelegramUserName;
 
       public PendingTelegramRegister() {
       }
@@ -8439,7 +8491,19 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          long createdAtMillis
       ) {
          this(
-            taskId, chatId, telegramUserId, telegramUsername, embyUserName, rawPassword, registerChannelDetail, lockKey, lockToken, createdAtMillis, false, 0L
+            taskId,
+            chatId,
+            telegramUserId,
+            telegramUsername,
+            embyUserName,
+            rawPassword,
+            registerChannelDetail,
+            lockKey,
+            lockToken,
+            createdAtMillis,
+            false,
+            0L,
+            null
          );
       }
 
@@ -8455,7 +8519,8 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          String lockToken,
          long createdAtMillis,
          boolean adminGifted,
-         long grantedByTelegramUserId
+         long grantedByTelegramUserId,
+         String grantedByTelegramUserName
       ) {
          this.taskId = taskId;
          this.chatId = chatId;
@@ -8469,6 +8534,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          this.createdAtMillis = createdAtMillis;
          this.adminGifted = adminGifted;
          this.grantedByTelegramUserId = grantedByTelegramUserId;
+         this.grantedByTelegramUserName = grantedByTelegramUserName;
       }
 
       public String getTaskId() {
@@ -8565,6 +8631,14 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
 
       public void setGrantedByTelegramUserId(long grantedByTelegramUserId) {
          this.grantedByTelegramUserId = grantedByTelegramUserId;
+      }
+
+      public String getGrantedByTelegramUserName() {
+         return this.grantedByTelegramUserName;
+      }
+
+      public void setGrantedByTelegramUserName(String grantedByTelegramUserName) {
+         this.grantedByTelegramUserName = grantedByTelegramUserName;
       }
    }
 
