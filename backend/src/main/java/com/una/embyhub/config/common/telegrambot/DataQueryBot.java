@@ -4863,8 +4863,8 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
          + operatorMention
          + " 已为 "
          + recipientMention
-         + " 开通普通 Mist 账号。\n\n"
-         + "请点击下方按钮领取，按提示设置用户名；账号密码会私聊发送给对方。";
+         + " 开通 Mist 账号。\n\n"
+         + "请点击下方按钮领取";
    }
 
    private String resolveWhitelistGiftTemplate(long operatorId) {
