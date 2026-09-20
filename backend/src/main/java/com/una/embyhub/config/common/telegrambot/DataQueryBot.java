@@ -4334,8 +4334,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                     this.stringRedisTemplate.delete(sessionKey);
                     String confirmation = this.buildKkRegistrationGrantMessage(
                        target,
-                       callbackQuery.getFrom(),
-                       operatorId
+                       callbackQuery.getFrom()
                     );
                     InlineKeyboardMarkup confirmationKeyboard = InlineKeyboardMarkup.builder()
                       .keyboard(
@@ -4856,29 +4855,16 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
 
    private String buildKkRegistrationGrantMessage(
       DataQueryBot.TelegramKkTarget target,
-      org.telegram.telegrambots.meta.api.objects.User operator,
-      long operatorId
+      org.telegram.telegrambots.meta.api.objects.User operator
    ) {
       String recipientMention = this.telegramUserMention(target.getTelegramUserId(), target.getDisplayName());
       String operatorMention = this.telegramUserMention(operator);
-      String template = this.resolveWhitelistGiftTemplate(operatorId);
-      String rendered = this.renderWhitelistTemplateText(
-         template,
-         recipientMention,
-         operatorMention,
-         target.getDisplayName(),
-         this.telegramDisplayName(operator)
-      );
-      if (this.hasWhitelistGiftTemplatePlaceholder(template)) {
-         return rendered;
-      }
-
       return "🎁 "
          + operatorMention
          + " 已为 "
          + recipientMention
-         + " 准备好 Mist 开户资格。\n\n"
-         + rendered;
+         + " 开通普通 Mist 账号。\n\n"
+         + "请点击下方按钮领取，按提示设置用户名；账号密码会私聊发送给对方。";
    }
 
    private String resolveWhitelistGiftTemplate(long operatorId) {
