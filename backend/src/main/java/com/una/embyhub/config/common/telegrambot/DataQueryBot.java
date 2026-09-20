@@ -261,6 +261,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       "/revadmin",
       "/whitelist",
       "/unwhitelist",
+      "/whitetemplate",
       "/callall",
       "/updateuserinfo",
       "/resetpassword",
@@ -1401,8 +1402,8 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                normalizedCommand = normalizedCommand.substring(0, normalizedCommand.indexOf(64));
             }
 
-            if (this.shouldCleanupFoamGroupCommand(command, normalizedCommand)) {
-               this.scheduleGroupCommandCleanup(message);
+            if (this.shouldCleanupBotCommand(command, normalizedCommand)) {
+               this.deleteBotCommand(message);
             }
 
             if (!this.requiresAdmin(normalizedCommand) || this.hasAdminPermission(message)) {
@@ -1554,7 +1555,7 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       }
    }
 
-   private boolean shouldCleanupFoamGroupCommand(String command, String normalizedCommand) {
+   private boolean shouldCleanupBotCommand(String command, String normalizedCommand) {
       if (!FOAM_GROUP_COMMANDS.contains(normalizedCommand)) {
          return false;
       } else {
@@ -1811,6 +1812,12 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
       }
    }
 
+   private void deleteBotCommand(Message message) {
+      if (message != null && !message.isUserMessage()) {
+         this.deleteMessageSilently(message.getChatId(), message.getMessageId());
+      }
+   }
+
    private void handleTelegramKkPermissionCommand(Message message, String argument, boolean grant) {
       long operatorId = message.getFrom() == null || message.getFrom().getId() == null ? 0L : message.getFrom().getId();
       if (!this.isBotOwner(operatorId)) {
@@ -1952,7 +1959,6 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                   if (message.isUserMessage()) {
                      this.sendMessage(message.getChatId(), result);
                   } else {
-                     this.deleteMessageSilently(message.getChatId(), message.getMessageId());
                      this.sendPersistentMessage(
                         message.getChatId(), whitelist ? this.buildWhitelistCelebrationMessage(message.getChatId(), target, message.getFrom()) : result
                      );
