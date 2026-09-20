@@ -19,6 +19,7 @@ import com.diboot.core.binding.QueryBuilder;
 import com.diboot.core.binding.RelationsBinder;
 import com.diboot.core.util.BeanUtils;
 import com.una.embyhub.config.common.MpConvert;
+import com.una.embyhub.config.common.constants.EmbyUserRecordChannelDetail;
 import com.una.embyhub.config.common.enums.HostLineTypeEnum;
 import com.una.embyhub.config.common.enums.AdminMenuKey;
 import com.una.embyhub.config.common.enums.RegisterChannelEnum;
@@ -289,7 +290,69 @@ public class EmbyUserServiceImpl extends ServiceImpl<EmbyUserMapper, EmbyUser> i
 
          this.roseUserBindingService.attachBindings(records);
          this.attachTelegramBindings(records);
+         this.attachInviterNames(records);
       }
+   }
+
+   private void attachInviterNames(List<EmbyUserResponse> records) {
+      List<Long> userIds = records.stream().map(EmbyUserResponse::getId).filter(Objects::nonNull).distinct().collect(Collectors.toList());
+      if (CollectionUtils.isEmpty(userIds)) {
+         return;
+      }
+
+      Map<Long, Long> inviterIdByInvitee = new HashMap<>();
+      List<UserInvitation> invitations = new LambdaQueryChainWrapper<>(this.userInvitationService.getBaseMapper())
+         .in(UserInvitation::getInviteeId, userIds)
+         .eq(UserInvitation::getDelFlag, Integer.valueOf(0))
+         .orderByDesc(UserInvitation::getId)
+         .list();
+      if (!CollectionUtils.isEmpty(invitations)) {
+         invitations.forEach(invitation -> {
+            if (invitation.getInviteeId() != null && invitation.getInviterId() != null) {
+               inviterIdByInvitee.putIfAbsent(invitation.getInviteeId(), invitation.getInviterId());
+            }
+         });
+      }
+
+      Map<Long, String> inviterNameById = new HashMap<>();
+      if (!inviterIdByInvitee.isEmpty()) {
+         List<Long> inviterIds = inviterIdByInvitee.values().stream().distinct().collect(Collectors.toList());
+         this.lambdaQuery().in(EmbyUser::getId, inviterIds).list().forEach(inviter -> {
+            if (inviter.getId() != null && StringUtils.hasText(inviter.getEmbyUserName())) {
+               inviterNameById.put(inviter.getId(), inviter.getEmbyUserName());
+            }
+         });
+      }
+
+      records.forEach(response -> {
+         String inviterName = response.getId() == null ? null : inviterNameById.get(inviterIdByInvitee.get(response.getId()));
+         if (!StringUtils.hasText(inviterName) && !CollectionUtils.isEmpty(response.getCardSecurityManagementList())) {
+            inviterName = response.getCardSecurityManagementList().stream()
+               .filter(Objects::nonNull)
+               .map(CardSecurityManagementResponse::getDistributorName)
+               .filter(StringUtils::hasText)
+               .findFirst()
+               .orElse(null);
+         }
+         if (!StringUtils.hasText(inviterName)) {
+            inviterName = resolveKkInviterName(response.getRemarks());
+         }
+         response.setInviterName(inviterName);
+      });
+   }
+
+   private String resolveKkInviterName(String remarks) {
+      if (!StringUtils.hasText(remarks) || !remarks.startsWith(EmbyUserRecordChannelDetail.TELEGRAM_KK_GIFT_REGISTER)) {
+         return null;
+      }
+
+      String marker = "邀请人：";
+      int markerIndex = remarks.indexOf(marker);
+      if (markerIndex < 0) {
+         return "未记录";
+      }
+      String inviterName = remarks.substring(markerIndex + marker.length()).trim();
+      return StringUtils.hasText(inviterName) ? inviterName : "未记录";
    }
 
    private void attachDistributorUserListBindings(List<EmbyUserResponse> records, Long distributorId) {

@@ -46,6 +46,7 @@ public class EmbyUserResponse implements Serializable {
    private String avatar;
    private Integer registerChannel;
    private String registerChannelName;
+   private String inviterName;
    @TableField("emby_info_id")
    private Long embyInfoId;
    private Integer hostLineType;
@@ -231,6 +232,11 @@ public class EmbyUserResponse implements Serializable {
    }
 
    @Generated
+   public String getInviterName() {
+      return this.inviterName;
+   }
+
+   @Generated
    public Long getEmbyInfoId() {
       return this.embyInfoId;
    }
@@ -388,6 +394,11 @@ public class EmbyUserResponse implements Serializable {
    @Generated
    public void setRegisterChannelName(final String registerChannelName) {
       this.registerChannelName = registerChannelName;
+   }
+
+   @Generated
+   public void setInviterName(final String inviterName) {
+      this.inviterName = inviterName;
    }
 
    @Generated
