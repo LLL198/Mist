@@ -2518,37 +2518,38 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                      .toLocalDateTime()
                      .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
             );
-         String text = this.foamPanelTitle("用户管理")
-            + "*· 👤 账号* | `"
-            + this.escapeMarkdown(target.getEmbyUserName())
-            + "`\n"
-            + "*· 🖥 服务器* | "
-            + this.escapeMarkdown(this.buildServerLabel(server))
-            + "\n"
-            + "*· 📡 状态* | "
-            + (Integer.valueOf(1).equals(target.getUserStatus()) ? "\ud83d\udd34 已禁用" : "\ud83d\udfe2 正常")
-            + "\n"
-            + "*· 🧭 线路* | "
-            + (whitelist ? "白名单 · 全部线路" : "普通线路")
-            + "\n"
-            + "*· ⏳ 有效期* | "
-            + expiration
-            + "\n"
-            + "*· 🎬 求片额度* | "
-            + (target.getRequestPackagesCount() == null ? 0 : target.getRequestPackagesCount());
-         if (StringUtils.hasText(kkInviter)) {
-            text = text + "\n" + "*· 🎁 邀请人* | " + this.escapeMarkdown(kkInviter);
-         }
-         if (whitelist && canManageWhitelist) {
-          text = text + "\n\n" + MistTelegramStyle.markdownSection("白名单操作") + "↩️ 移出白名单并重置有效期";
-          }
-
-         if (!canOperate) {
-            text = text + "\n\n" + MistTelegramStyle.markdownSection("权限范围") + "👁️ 当前级别仅可查看，同级账号不能执行修改、删除或群管理操作。";
-         }
-
+         String text;
          if (publicPanel) {
-            text = text + "\n\n" + MistTelegramStyle.markdownSection("操作来源") + "🌁 [管理员](tg://user?id=" + operatorId + ") 已打开此面板。";
+            text = "*用户管理*\n" + MistTelegramStyle.DIVIDER + "\n";
+         } else {
+            text = this.foamPanelTitle("用户管理")
+               + "*· 👤 账号* | `"
+               + this.escapeMarkdown(target.getEmbyUserName())
+               + "`\n"
+               + "*· 🖥 服务器* | "
+               + this.escapeMarkdown(this.buildServerLabel(server))
+               + "\n"
+               + "*· 📡 状态* | "
+               + (Integer.valueOf(1).equals(target.getUserStatus()) ? "\ud83d\udd34 已禁用" : "\ud83d\udfe2 正常")
+               + "\n"
+               + "*· 🧭 线路* | "
+               + (whitelist ? "白名单 · 全部线路" : "普通线路")
+               + "\n"
+               + "*· ⏳ 有效期* | "
+               + expiration
+               + "\n"
+               + "*· 🎬 求片额度* | "
+               + (target.getRequestPackagesCount() == null ? 0 : target.getRequestPackagesCount());
+            if (StringUtils.hasText(kkInviter)) {
+               text = text + "\n" + "*· 🎁 邀请人* | " + this.escapeMarkdown(kkInviter);
+            }
+            if (whitelist && canManageWhitelist) {
+               text = text + "\n\n" + MistTelegramStyle.markdownSection("白名单操作") + "↩️ 移出白名单并重置有效期";
+            }
+
+            if (!canOperate) {
+               text = text + "\n\n" + MistTelegramStyle.markdownSection("权限范围") + "👁️ 当前级别仅可查看，同级账号不能执行修改、删除或群管理操作。";
+            }
          }
 
          if (StringUtils.hasText(notice)) {
@@ -2595,23 +2596,6 @@ public class DataQueryBot implements LongPollingSingleThreadUpdateConsumer {
                   rows.add(new InlineKeyboardRow(whitelistButton));
                }
             }
-         }
-
-         Long boundTelegramUserId = this.resolveBoundTelegramUserId(target);
-         boolean canModerateTelegramMember = publicPanel
-            && boundTelegramUserId != null
-            && boundTelegramUserId != operatorId
-             && canOperate
-             && this.canAuthorizedAdminModerateGroup(operatorId);
-         if (canModerateTelegramMember) {
-            boolean muted = this.isGroupMemberMuted(destinationChatId, boundTelegramUserId);
-            publicActionButtons.add(
-               InlineKeyboardButton.builder()
-               .text(muted ? "🔊 解除禁言" : "🔇 禁言成员")
-                  .callbackData("admin_user:" + token + ":" + (muted ? "unmute" : "mute"))
-                  .build()
-            );
-            publicActionButtons.add(InlineKeyboardButton.builder().text("🚫 踢出并封禁").callbackData("admin_user:" + token + ":kickban").build());
          }
 
          for (int index = 0; index < publicActionButtons.size(); index += 2) {
